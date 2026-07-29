@@ -35,34 +35,6 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>Switcher Mode</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSegmentCell</string>
-			<key>label</key>
-			<string>Switcher Mode</string>
-			<key>key</key>
-			<string>switcherMode</string>
-			<key>default</key>
-			<string>grid</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>validTitles</key>
-			<array>
-				<string>Stock</string>
-				<string>Grid</string>
-			</array>
-			<key>validValues</key>
-			<array>
-				<string>stock</string>
-				<string>grid</string>
-			</array>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
 			<key>footerText</key>
 			<string>More modules to be added in future updates</string>
 		</dict>
@@ -105,6 +77,98 @@
             <string>BatteryPreferenceController</string>
         </dict>
 		<dict>
+            <key>cell</key>
+            <string>PSLinkCell</string>
+            <key>isController</key>
+            <true/>
+            <key>overridePrincipalClass</key>
+            <true/>
+            <key>label</key>
+            <string>Pinned Devices</string>
+            <key>detail</key>
+            <string>VaonPinnedDevicesController</string>
+        </dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Pagination</string>
+			<key>footerText</key>
+			<string>Devices are shown in pages you swipe between.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTableCell</string>
+			<key>cellClass</key>
+			<string>VaonStepperCell</string>
+			<key>label</key>
+			<string>Devices Per Page</string>
+			<key>default</key>
+			<integer>4</integer>
+			<key>min</key>
+			<integer>1</integer>
+			<key>max</key>
+			<integer>10</integer>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>key</key>
+			<string>devicesPerPage</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>id</key>
+			<string>showPageDots</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>key</key>
+			<string>showPageDots</string>
+			<key>label</key>
+			<string>Show Page Dots</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>id</key>
+			<string>verticalPageDots</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>key</key>
+			<string>verticalPageDots</string>
+			<key>label</key>
+			<string>Vertical Page Dots (Left Side)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>id</key>
+			<string>pageDotsOnlyWhileSwiping</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>key</key>
+			<string>pageDotsOnlyWhileSwiping</string>
+			<key>label</key>
+			<string>Only While Swiping</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>key</key>
+			<string>rememberLastPage</string>
+			<key>label</key>
+			<string>Remember Last Page</string>
+		</dict>
+		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
@@ -121,54 +185,6 @@
 			<string>hideBackground</string>
 			<key>label</key>
 			<string>Hide Vaon Background</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<false/>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>hideAppTitles</string>
-			<key>label</key>
-			<string>Hide Switcher App Titles</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<false/>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>hideAppIcons</string>
-			<key>label</key>
-			<string>Hide Switcher App Icons</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<true/>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>hideSuggestionBanner</string>
-			<key>label</key>
-			<string>Hide Suggested Apps/Handoff Banner</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<true/>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>displayWithNoApps</string>
-			<key>label</key>
-			<string>Display Vaon when no apps are open</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -368,7 +384,9 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Grid Switcher Custom Sizing</string>
+			<string>Landscape (Beta)</string>
+			<key>footerText</key>
+			<string>For landscape with a floating dock: hide Vaon, or nudge it aside with the landscape offsets. Applied on the next switcher open; respring after changing.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -377,54 +395,78 @@
 			<false/>
 			<key>defaults</key>
 			<string>com.atar13.vaonprefs</string>
+			<key>id</key>
+			<string>hideInLandscape</string>
 			<key>key</key>
-			<string>customGridSwitcherAppSizeEnabled</string>
+			<string>hideInLandscape</string>
 			<key>label</key>
-			<string>Enable Custom App Size</string>
+			<string>Hide Vaon in Landscape</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>id</key>
+			<string>landscapeOffsetEnabled</string>
+			<key>key</key>
+			<string>landscapeOffsetEnabled</string>
+			<key>label</key>
+			<string>Enable Landscape Offset</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>landscapeHOffsetHeader</string>
+			<key>label</key>
+			<string>Horizontal Offset — X (left / right)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<real>0.25</real>
+			<integer>0</integer>
 			<key>min</key>
-			<real>0.1</real>
+			<integer>-450</integer>
 			<key>max</key>
-			<real>0.7</real>
+			<integer>450</integer>
 			<key>showValue</key>
 			<true/>
+			<key>id</key>
+			<string>landscapeHorizontalOffset</string>
 			<key>defaults</key>
 			<string>com.atar13.vaonprefs</string>
 			<key>key</key>
-			<string>customGridSwitcherAppSize</string>
+			<string>landscapeHorizontalOffset</string>
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<false/>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customGridSwitcherSpacingEnabled</string>
+			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>landscapeVOffsetHeader</string>
 			<key>label</key>
-			<string>Enable Custom Spacing</string>
+			<string>Vertical Offset — Y (up / down)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
-			<integer>40</integer>
+			<integer>-80</integer>
 			<key>min</key>
-			<integer>0</integer>
+			<integer>-400</integer>
 			<key>max</key>
 			<integer>100</integer>
 			<key>showValue</key>
 			<true/>
+			<key>id</key>
+			<string>landscapeVerticalOffset</string>
 			<key>defaults</key>
 			<string>com.atar13.vaonprefs</string>
 			<key>key</key>
-			<string>customGridSwitcherSpacing</string>
+			<string>landscapeVerticalOffset</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -451,6 +493,16 @@
 			<string>twitterKeycap</string>
 			<key>icon</key>
 			<string>images/twitter/twitterIconKeycap</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>CySxL (iOS 16 / roothide / Pinned Devices)</string>
+			<key>action</key>
+			<string>githubCySxL</string>
+			<key>icon</key>
+			<string>images/github/githubIcon</string>
 		</dict>
 		<dict>
 			<key>cell</key>

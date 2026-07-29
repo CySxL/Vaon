@@ -1,6 +1,6 @@
 # Vaon
 iOS Jailbreak tweak that adds convenient battery information for Bluetooth devices in the iOS app switcher.
-#### Supports iOS 13-15
+#### Supports iOS 16 (rootless and roothide)
 
  ![Vaon Animation](./assets/Vaon_animation.gif)
 
