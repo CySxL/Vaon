@@ -873,6 +873,22 @@ void updateScrollWidthAndTouchPassthrough() {
 
 
 
+//move the scroll view to the page for this open: the remembered page, or page 0. called before the
+//fade so the correct page shows from the start instead of flashing the previously left page
+static void vaonRestoreBatteryPage() {
+	if(!batteryScrollView) return;
+	[batteryScrollView layoutIfNeeded];
+	NSInteger pages = batteryPageControl.numberOfPages;
+	NSInteger target = rememberLastPage ? [[prefs objectForKey:@"lastBatteryPage"] integerValue] : 0;
+	if(target < 0) target = 0;
+	if(target >= pages) target = pages > 0 ? pages - 1 : 0;
+	currentBatteryPage = target;
+	CGFloat pw = customWidthEnabled ? customWidth : dockWidth;
+	if(pw <= 0) pw = batteryScrollView.bounds.size.width;
+	if(pw > 0) batteryScrollView.contentOffset = CGPointMake(target * pw, 0);
+	if(batteryPageControl) batteryPageControl.currentPage = target;
+}
+
 void updateBatteryView(){
 		vaonFlattenPages();
 
@@ -995,16 +1011,7 @@ void updateBatteryView(){
 		vaonLayoutPages();
 
 		//restore the page for this open: last-viewed page, or page 0
-		[batteryScrollView layoutIfNeeded];
-		NSInteger pages = batteryPageControl.numberOfPages;
-		NSInteger target = rememberLastPage ? [[prefs objectForKey:@"lastBatteryPage"] integerValue] : 0;
-		if(target < 0) target = 0;
-		if(target >= pages) target = pages > 0 ? pages - 1 : 0;
-		currentBatteryPage = target;
-		CGFloat pw = customWidthEnabled ? customWidth : dockWidth;
-		if(pw <= 0) pw = batteryScrollView.bounds.size.width;
-		if(pw > 0) batteryScrollView.contentOffset = CGPointMake(target * pw, 0);
-		if(batteryPageControl) batteryPageControl.currentPage = target;
+		vaonRestoreBatteryPage();
 }
 
 
@@ -1014,6 +1021,8 @@ void updateBatteryView(){
 void fadeViewIn(UIView *view, CGFloat duration){
 	//group and center the pages before the fade so the animation never shows the flat left-aligned cells
 	vaonLayoutPages();
+	//land on the right page before fading so the previously left page does not flash on open
+	vaonRestoreBatteryPage();
 	updateScrollWidthAndTouchPassthrough();
 
 	//in landscape offset mode the position comes purely from the constraints (which carry the
@@ -1252,6 +1261,13 @@ static void vaonApplyOrientationLayout(UIView *host){
 		%orig;
 		if(vaonView && vaonShown){
 			fadeViewOut(vaonView, 0.3);
+			//if the leave gesture is cancelled and the switcher stays up, vaon would be left hidden.
+			//after the transition settles, re-show it only when the switcher is still on screen
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+				if(switcherContentView && switcherContentView.window != nil && !vaonShown && vaonView && !vaonView.hidden){
+					fadeViewIn(vaonView, 0.25);
+				}
+			});
 		}
 	}
 
