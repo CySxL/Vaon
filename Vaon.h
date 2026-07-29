@@ -66,13 +66,13 @@
 
 @interface StrokeEndAnimationDelegate : NSObject <CAAnimationDelegate>
 -(instancetype)initWithCell:(VaonDeviceBatteryCell *)cell;
-@property (nonatomic) VaonDeviceBatteryCell *cell;
+@property (nonatomic, weak) VaonDeviceBatteryCell *cell;
 -(void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag;
 @end
 
 @interface PulsateColorAnimationDelegate : NSObject <CAAnimationDelegate>
 -(instancetype)initWithCell:(VaonDeviceBatteryCell *)cell nextAnimation:(CAAnimation *)nextAnimation;
-@property (nonatomic) VaonDeviceBatteryCell *cell;
+@property (nonatomic, weak) VaonDeviceBatteryCell *cell;
 @property (nonatomic, strong) CAAnimation *nextAnimation;
 -(void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag;
 @end

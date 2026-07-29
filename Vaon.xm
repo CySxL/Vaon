@@ -96,7 +96,6 @@ BOOL stockHidden = TRUE;
 BOOL vaonShown = FALSE;
 
 NSArray *connectedBluetoothDevices;
-NSMutableArray *deviceIdentifiers = [[NSMutableArray alloc] init];
 
 UIColor *normalBatteryColor = [UIColor colorWithRed:0.1882352941 green:0.8196078431 blue:0.3450980392 alpha: 1];
 UIColor *lowPowerModeColor = [UIColor colorWithRed:1 green:0.8 blue:0 alpha:1];
@@ -126,9 +125,10 @@ NSString *customChargingColorMode;
 NSString *customChargingColor;
 
 UIColor* colorFromHexString(NSString *hexString) {
+    if(hexString.length == 0) return [UIColor clearColor];
     unsigned rgbValue = 0;
     NSScanner *scanner = [NSScanner scannerWithString:hexString];
-    [scanner setScanLocation:1]; // bypass '#' character
+    if([hexString hasPrefix:@"#"]) [scanner setScanLocation:1];
     [scanner scanHexInt:&rgbValue];
     return [UIColor colorWithRed:((rgbValue & 0xFF0000) >> 16)/255.0 green:((rgbValue & 0xFF00) >> 8)/255.0 blue:(rgbValue & 0xFF)/255.0 alpha:1.0];
 }
@@ -885,7 +885,7 @@ void updateBatteryView(){
 		for(BCBatteryDevice *device in connectedBluetoothDevices){
 
 			vaonRecordDevice(device);
-			if(device || device != nil){
+			if(device){
 				BOOL duplicate = FALSE;
 				VaonDeviceBatteryCell *newCell = [[VaonDeviceBatteryCell alloc] initWithFrame:batteryHStackView.bounds device:device];
 				
@@ -900,12 +900,10 @@ void updateBatteryView(){
 					//add all devices that are not the iPhone/iPad
 					if(![device isInternal]){
 						[subviewsToBeAdded addObject:newCell];
-						[deviceIdentifiers addObject:[newCell.device identifier]];
 					} else{
 						//displays the iphone if hideInternal is off
 						if(!hideInternal){
 							[subviewsToBeAdded addObject:newCell];
-							[deviceIdentifiers addObject:[newCell.device identifier]];
 						}
 					}
 				}
@@ -917,7 +915,7 @@ void updateBatteryView(){
 		//animate and add subviews to the hstack
 		for(VaonDeviceBatteryCell *subview in subviewsToBeAdded){
 
-			if(subview.device || subview.device != nil){
+			if(subview.device){
 				[batteryHStackView addArrangedSubview:subview];
 				subview.alpha = 0;
 				//fade in new devices
@@ -970,7 +968,6 @@ void updateBatteryView(){
 					}
 					completion:^(BOOL finished) {
 						[subview removeFromSuperview];
-						[deviceIdentifiers removeObject:[subview.device identifier]];
 					}];
 				}
 			}
