@@ -1,8 +1,3 @@
-//TODO: 
-//raise app switcher
-
-//ios 14 1751.108 
-
 //credit to Dogbert for the icon
 
 #import "Vaon.h"
@@ -56,7 +51,6 @@ BOOL horizontalSpacingBetweenDevicesEnabled;
 CGFloat horizontalSpacingBetweenDevices;
 
 UIView *vaonView;
-UIView *vaonGridView;
 
 UIScrollView *batteryScrollView;
 
@@ -95,7 +89,6 @@ CGFloat vaonViewHeightCaptured;
 static BOOL vaonIsLandscape(UIView *view);
 static void vaonApplyOrientationLayout(UIView *host);
 
-// long long sbAppSwitcherOrientation;
 SBSwitcherAppSuggestionContentView *switcherContentView;
 long long currentSwitcherStyle;
 BOOL stockHidden = TRUE;
@@ -499,34 +492,13 @@ static void vaonLayoutPages() {
         self.devicePercentageLabel.font = devicePercentageLabelFont;
         self.devicePercentageLabel.frame = self.bounds;
 		self.devicePercentageLabel.textColor = normalBatteryColor;
-        // self.devicePercentageLabel.clipsToBounds = TRUE;
-
-		// self.devicePercentageLabel.layoutMargins = UIEdgeInsetsMake(0, 0, -20, 0);
-		// [self setLayoutMarginsRelativeArrangement:YES];
-		// self.devicePercentageLabel.bounds = CGRectInset(self.devicePercentageLabel.frame, 0.0f, 1.0f);
-		// self.devicePercentageLabel.directionalLayoutMargins = NSDirectionalEdgeInsetsMake(100, 0, 0, 0);
 
 		//view placement and constraints for background blur
-        // [self.circleBackgroundVisualEffectView.contentView addSubview:self.devicePercentageLabel];
         self.circleBackgroundVisualEffectView.translatesAutoresizingMaskIntoConstraints = FALSE;
         [self.circleBackgroundVisualEffectView.widthAnchor constraintEqualToConstant:self.cellWidth].active = TRUE;
         [self.circleBackgroundVisualEffectView.heightAnchor constraintEqualToConstant:self.cellWidth].active = TRUE;
-		// self.circleBackgroundVisualEffectView.frame = self.circleBackgroundVisualEffectView.frame.inset() UIEdgeInsetsMake(0, 0, 10, 0);
 
 		[self addArrangedSubview:self.circleBackgroundVisualEffectView];
-
-		// if(paddingBetweenGlyphAndLabelEnabled) {
-		// 	self.paddingView = [[UIView alloc] init];
-		// 	[self.paddingView.heightAnchor constraintEqualToConstant: paddingBetweenGlyphAndLabel].active = TRUE;
-		// 	[self.paddingView.widthAnchor constraintEqualToConstant:self.cellWidth].active = TRUE;
-		// 	[self addArrangedSubview:self.paddingView];
-		// }
-
-
-		//view placement and constrains for battery percentage 
-        // self.devicePercentageLabel.translatesAutoresizingMaskIntoConstraints = FALSE;
-        // [self.devicePercentageLabel.centerXAnchor constraintEqualToAnchor:self.circleBackgroundVisualEffectView.centerXAnchor].active = TRUE;
-        // [self.devicePercentageLabel.centerYAnchor constraintEqualToAnchor:self.circleBackgroundVisualEffectView.centerYAnchor constant:100].active = TRUE;
 
 		//initialize circular outline path
         self.circleOutlinePath = [UIBezierPath bezierPathWithArcCenter:CGPointMake(self.circleBackgroundVisualEffectView.contentView.center.x+self.cellWidth/2,self.circleBackgroundVisualEffectView.contentView.center.y+self.cellWidth/2)
@@ -569,8 +541,7 @@ static void vaonLayoutPages() {
 			[self.deviceGlyphView.heightAnchor constraintEqualToConstant:self.cellWidth * 0.6 ].active = TRUE;
 			[self.deviceGlyphView.widthAnchor constraintEqualToConstant:self.cellWidth * 0.6 * glyphAspectRatio].active = TRUE;
 		}
-		// self.deviceGlyphView.contentMode = UIViewContentModeScaleAspectFit;
-		
+
 		if(!hidePercentageLabel) {
 			[self addArrangedSubview:self.devicePercentageLabel];
 		}
@@ -746,7 +717,6 @@ static void vaonLayoutPages() {
 				self.devicePercentageLabel.textColor = normalBatteryColor;
 			}
 		}else {
-			// self.devicePercentageLabel.textColor = [UIColor labelColor];
 			if ([batteryTextColor isEqualToString:@"system"]) {
 				self.devicePercentageLabel.textColor = [UIColor labelColor];
 			} else if ([batteryTextColor isEqualToString:@"dark"]) {
@@ -863,13 +833,8 @@ void initBaseVaonView(UIView* view) {
 	view.layer.cornerRadius = vaonViewCornerRadius;
 	view.alpha = 0;
 	view.backgroundColor = vaonViewBackgroundColor;
-	// view.userInteractionEnabled = FALSE;
-	
-	// if(hideBackground) {
-	// 	vaonBlurView = [[UIVisualEffectView alloc] initWithEffect:nil];
-	// } else {
+
 	vaonBlurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
-	// }
 	vaonBlurView.frame = view.bounds;
 	vaonBlurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	if(hideBackground) {
@@ -889,28 +854,19 @@ void updateScrollWidthAndTouchPassthrough() {
 	lastStyle = currentSwitcherStyle;
 	if((customWidthEnabled && batteryHStackView.bounds.size.width > customWidth) || batteryHStackView.bounds.size.width > dockWidth){
 		batteryScrollView.scrollEnabled = TRUE;
-			if(currentSwitcherStyle == 2){
-				vaonGridView.userInteractionEnabled = TRUE;
-			}else {
-				vaonView.userInteractionEnabled = TRUE;
-				batteryScrollView.userInteractionEnabled = TRUE;
-				batteryHStackView.userInteractionEnabled = TRUE;
-				if(switcherContentView) {
-					switcherContentView.userInteractionEnabled = TRUE;	
-				}
+			vaonView.userInteractionEnabled = TRUE;
+			batteryScrollView.userInteractionEnabled = TRUE;
+			batteryHStackView.userInteractionEnabled = TRUE;
+			if(switcherContentView) {
+				switcherContentView.userInteractionEnabled = TRUE;
 			}
 		}else{
 			batteryScrollView.scrollEnabled = FALSE;
-
-			if(currentSwitcherStyle == 2){
-				vaonGridView.userInteractionEnabled = FALSE;
-			}else {
-				vaonView.userInteractionEnabled = FALSE;
-				batteryScrollView.userInteractionEnabled = FALSE;
-				batteryHStackView.userInteractionEnabled = FALSE;
-				if(switcherContentView) {
-					switcherContentView.userInteractionEnabled = FALSE;	
-				}
+			vaonView.userInteractionEnabled = FALSE;
+			batteryScrollView.userInteractionEnabled = FALSE;
+			batteryHStackView.userInteractionEnabled = FALSE;
+			if(switcherContentView) {
+				switcherContentView.userInteractionEnabled = FALSE;
 			}
 	}
 }
@@ -929,12 +885,10 @@ void updateBatteryView(){
 		for(BCBatteryDevice *device in connectedBluetoothDevices){
 
 			vaonRecordDevice(device);
-			// if(device != nil || [device.name isEqual:@"(null)"] || [device isEqual:@"(null)"]){
 			if(device || device != nil){
 				BOOL duplicate = FALSE;
 				VaonDeviceBatteryCell *newCell = [[VaonDeviceBatteryCell alloc] initWithFrame:batteryHStackView.bounds device:device];
 				
-				// NSLog(@"Vaon contains %i", ![deviceNames containsObject:newCell.device.name]);
 
 				//skip devices already shown; dedup against the current cells, not a growing name list
 				for(VaonDeviceBatteryCell *subview in batteryHStackView.subviews){
@@ -947,13 +901,11 @@ void updateBatteryView(){
 					if(![device isInternal]){
 						[subviewsToBeAdded addObject:newCell];
 						[deviceIdentifiers addObject:[newCell.device identifier]];
-						// [deviceNames addObject:[newCell.device name]];
 					} else{
 						//displays the iphone if hideInternal is off
 						if(!hideInternal){
 							[subviewsToBeAdded addObject:newCell];
 							[deviceIdentifiers addObject:[newCell.device identifier]];
-							// [deviceNames addObject:[newCell.device name]];
 						}
 					}
 				}
@@ -969,10 +921,8 @@ void updateBatteryView(){
 				[batteryHStackView addArrangedSubview:subview];
 				subview.alpha = 0;
 				//fade in new devices
-				// subview.frame = CGRectMake(subview.frame.origin.x, -200 , subview.frame.size.width, subview.frame.size.height);
 				[UIView animateWithDuration:0.3 animations:^ {
 					subview.alpha = 1;
-					// subview.frame = CGRectMake(subview.frame.origin.x, subview.frame.origin.y, subview.frame.size.width, subview.frame.size.height);
 
 				}
 				completion:^(BOOL finished) {
@@ -995,33 +945,11 @@ void updateBatteryView(){
 				for(BCBatteryDevice *device in connectedBluetoothDevices) {
 					if([device.name isEqual:subview.deviceName]) {
 						subview.device = device;
-
-						// Didn't fix glyph not displaying correct device issue
-						// subview.deviceGlyphView = [[UIImageView alloc] initWithImage:[device batteryWidgetGlyph]];
 					}
 				}
 			}
 
-			// for(NSString *name in deviceNames){
-			// 	if ([subview.device.name isEqual:name]){
-			// 		[UIView animateWithDuration:0.3 animations:^ {
-			// 			subview.alpha = 0;
-			// 		}
-			// 		completion:^(BOOL finished) {
-			// 			[subview removeFromSuperview];
-			// 			[deviceIdentifiers removeObject:[subview.device identifier]];
-			// 			NSUInteger index = [deviceNames indexOfObject:name];
-
-			// 			if(index > -1 && index < [deviceNames count]){
-			// 				[deviceNames removeObjectAtIndex:index];			
-			// 			}
-			// 		}];	
-			// 	}
-			// }
-
-
-			// if(subview.device || subview.device != nil){
-			//checks if the device is not connected anymore 
+			//checks if the device is not connected anymore
 			if((![connectedBluetoothDevices containsObject:subview.device] && ![subview.device isConnected])){
 				//if keep is turned on, keep the device and just update its properties
 				if(keepDisconnectedDevices || subview.pinned){
@@ -1036,7 +964,6 @@ void updateBatteryView(){
 					}
 				} else{
 					//remove subviews that aren't connected if keepDisconnectedDevices is turned off
-					// subview.alpha = 1;
 					//fade out
 					[UIView animateWithDuration:0.3 animations:^ {
 						subview.alpha = 0;
@@ -1044,12 +971,10 @@ void updateBatteryView(){
 					completion:^(BOOL finished) {
 						[subview removeFromSuperview];
 						[deviceIdentifiers removeObject:[subview.device identifier]];
-						// [deviceNames removeObject:subview.deviceName];			
-					}];	
+					}];
 				}
 			}
 
-			// NSLog(@"Vaon Device Name: %@ Percentage: %lld", subview.device, subview.device.percentCharge);
 
 			//updates outline color and percentage values 
 			if(keepDisconnectedDevices || subview.pinned){	
@@ -1067,7 +992,6 @@ void updateBatteryView(){
 				[subview updatePercentageColor];
 				[subview updateDevicePercentage];
 			}
-			// }
 		}
 
 		vaonSeedPinnedDevices();
@@ -1084,8 +1008,6 @@ void updateBatteryView(){
 		if(pw <= 0) pw = batteryScrollView.bounds.size.width;
 		if(pw > 0) batteryScrollView.contentOffset = CGPointMake(target * pw, 0);
 		if(batteryPageControl) batteryPageControl.currentPage = target;
-
-	// });
 }
 
 
@@ -1152,7 +1074,6 @@ void fadeViewOut(UIView *view, CGFloat duration){
 	for(VaonDeviceBatteryCell *subview in vaonAllBatteryCells()){
 		[subview newAnimateOuterLayerToZero];
 	}
-	// [view.centerYAnchor constraintEqualToAnchor:view.bottomAnchor constant:200].active = TRUE;
 	//landscape offset mode keeps the view at its constraint position and just fades, so the slide
 	//offscreen (which uses the portrait screen height) does not fight the offset
 	BOOL landscapeActive = landscapeOffsetEnabled && vaonIsLandscape(view);
@@ -1163,7 +1084,6 @@ void fadeViewOut(UIView *view, CGFloat duration){
 	}
 
 	[UIView animateWithDuration:duration animations:^ {
-		// [view layoutIfNeeded];
 		if(!landscapeActive && enableFlyInOut) {
 			view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + 200, view.frame.size.width, view.frame.size.height);
 		}
@@ -1289,15 +1209,7 @@ static void vaonApplyOrientationLayout(UIView *host){
 						fadeViewIn(vaonView, 0.4);
 					}
 				} else {
-					if(stockHidden){	
-						//TODO: look into this
-						// vaonView.userInteractionEnabled = FALSE;
-						// batteryHStackView.userInteractionEnabled = FALSE;
-						// batteryScrollView.userInteractionEnabled = FALSE;
-						// if(switcherContentView) {
-						// 	switcherContentView.userInteractionEnabled = FALSE;	
-						// }
-
+					if(stockHidden){
 						if(enableDelay) {
 							delayedFadeInTimer = [NSTimer scheduledTimerWithTimeInterval:fadeInDelay target:self selector:@selector(delayedFadeViewIn) userInfo:nil repeats:NO];
 						} else {

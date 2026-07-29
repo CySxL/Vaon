@@ -498,7 +498,7 @@
 			<key>cell</key>
 			<string>PSButtonCell</string>
 			<key>label</key>
-			<string>CySxL (iOS 16 / roothide / Pinned Devices)</string>
+			<string>CySxL (iOS 16 port, pinned devices, pagination, landscape)</string>
 			<key>action</key>
 			<string>githubCySxL</string>
 			<key>icon</key>

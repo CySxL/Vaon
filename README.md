@@ -1,26 +1,39 @@
 # Vaon
-iOS Jailbreak tweak that adds convenient battery information for Bluetooth devices in the iOS app switcher.
-#### Supports iOS 16 (rootless and roothide)
+An iOS jailbreak tweak that shows Bluetooth device battery information in the app switcher.
 
  ![Vaon Animation](./assets/Vaon_animation.gif)
 
 ## Features
-- ##### Provides Bluetooth device battery information in the iOS app switcher. 
-- ##### Displays AirPods, Apple Watch, iPhone/iPad, and any other bluetooth device. 
-- ##### Shows the last known battery status of disconnected devices.    
-- ##### iPad Style grid app switcher
-- ##### Custom sizing and placement
-- ##### Animates the color of charging device's battery cell outline
+Vaon shows Bluetooth device battery in the app switcher. For the original feature set and screenshots, see the [original repository](https://github.com/atar13/Vaon). This fork targets iOS 16 and differs from the original; its changes are listed below.
 
-## Install
- 
-Add [atar13.github.io/repo](https:/atar13.github.io/repo) to your favorite package manager and install from there or download a package from the [releases](https://github.com/atar13/Vaon/releases) tab on this repository. 
+## Compatibility
+Vaon currently targets **iOS 16 only** (rootless and roothide).
+
+Development and testing are done on iOS 16 hardware only, which is the hardware available to the current maintainer. Because the changes cannot be verified on earlier versions, support for iOS 13 to 15 has been removed and the tweak activates only on iOS 16.
+
+The option that switched the app switcher to an iPad style grid has also been removed, so development can focus on the battery module. If you want a grid app switcher, use a dedicated tweak for that alongside Vaon.
+
+## What changed in this release
+- iOS 16 support for rootless and roothide. Support for iOS 13 to 15 has been removed
+- The iPad style grid app switcher option has been removed
+- Pinned Devices, with persistence across respring, drag to reorder, and custom SF Symbol glyphs
+- A page based layout with a configurable per page device count and page dots
+- Page dot options: vertical dots, showing them only while swiping, and remembering the last page
+- Landscape (beta): hide, or offset Vaon to avoid overlapping a floating dock
+- Fix: the brief left aligned "all devices" view no longer appears when the switcher opens
+- Fix: the app switcher home gesture is no longer disrupted when swiping up near the Vaon module
 
 ## Build
-Install Theos with an iOS 13.5 or later SDK and run: 
+Install Theos, then build a package with:
 
- ```make clean package```
+ ```
+ make clean && make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+ ```
+
+ For a rootless package, use ```THEOS_PACKAGE_SCHEME=rootless``` instead.
+
+## Credits
+Originally created by atar13. The iOS 16 port and the changes above are by CySxL. See the in app Contact section for links.
 
 ## License
-
-This project is licensed under the terms of the MIT License. 
+This project is licensed under the terms of the MIT License.
