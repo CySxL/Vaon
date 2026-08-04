@@ -616,15 +616,41 @@ static void vaonRespring(void) {
 	-(void)viewDidLoad {
 		[super viewDidLoad];
 		self.title = @"Choose Glyph";
-		//curated SF Symbols relevant to bluetooth accessories (iOS 16). first entry = reset to default.
+		//curated SF Symbols relevant to bluetooth accessories. first entry = reset to default.
+		//every name here ships in iOS 16.0 or earlier, so none of them resolve to nil on device
 		_symbols = @[
-			@"", @"airpodspro", @"airpods", @"airpodsmax", @"airpod.right", @"airpod.left",
-			@"airpodspro.chargingcase.wireless.fill", @"airpods.chargingcase.wireless.fill",
-			@"headphones", @"headphones.circle.fill", @"beats.headphones", @"earpods",
-			@"beats.studiobuds", @"homepod.fill", @"homepodmini.fill", @"hifispeaker.fill",
-			@"speaker.wave.2.fill", @"speaker.wave.3.fill", @"applewatch", @"iphone", @"ipad",
-			@"macbook", @"magicmouse.fill", @"keyboard", @"gamecontroller.fill",
-			@"car.fill", @"airplayaudio", @"dot.radiowaves.left.and.right"
+			@"",
+			//earbuds
+			@"airpods", @"airpodspro", @"airpodsmax", @"airpods.gen3", @"earpods", @"earbuds",
+			@"airpod.left", @"airpod.right", @"airpodpro.left", @"airpodpro.right",
+			@"airpod.gen3.left", @"airpod.gen3.right",
+			@"airpods.chargingcase.wireless.fill", @"airpodspro.chargingcase.wireless.fill",
+			@"airpods.gen3.chargingcase.wireless.fill",
+			//headphones
+			@"headphones", @"headphones.circle", @"headphones.circle.fill",
+			@"beats.headphones", @"beats.earphones", @"beats.studiobuds",
+			@"beats.studiobud.left", @"beats.studiobud.right",
+			@"beats.powerbeats", @"beats.powerbeatspro", @"beats.fit.pro",
+			@"hearingdevice.ear", @"ear.and.waveform",
+			//speakers
+			@"hifispeaker.fill", @"hifispeaker.2.fill", @"homepod.fill", @"homepod.2.fill",
+			@"homepodmini.fill", @"hifispeaker.and.homepod.fill", @"tv.and.hifispeaker.fill",
+			@"speaker.fill", @"speaker.wave.1.fill", @"speaker.wave.2.fill", @"speaker.wave.3.fill",
+			@"music.note", @"music.mic", @"waveform", @"waveform.circle.fill",
+			//tv, airplay and remotes
+			@"appletv.fill", @"tv.fill", @"airplayaudio", @"airplayvideo", @"av.remote",
+			@"appletvremote.gen4.fill",
+			//car
+			@"car.fill", @"car.2.fill", @"bolt.car.fill",
+			//input devices and computers
+			@"keyboard", @"keyboard.fill", @"magicmouse.fill", @"computermouse.fill",
+			@"applepencil", @"gamecontroller.fill", @"laptopcomputer", @"desktopcomputer",
+			//apple devices
+			@"iphone", @"ipad", @"applewatch", @"ipodtouch",
+			//generic wireless
+			@"antenna.radiowaves.left.and.right", @"dot.radiowaves.left.and.right",
+			@"dot.radiowaves.forward", @"wave.3.right", @"airtag.radiowaves.forward.fill",
+			@"sensor.tag.radiowaves.forward.fill", @"printer.fill"
 		];
 		_tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
 		_tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
