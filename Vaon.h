@@ -66,6 +66,8 @@
 -(CGFloat)getCellWidth;
 -(void)setCellWidth:(CGFloat)arg1;
 -(void)addPercentageSymbolToLabel;
+-(UIFont *)percentageFont;
+-(CGFloat)percentageLabelHeight;
 -(long long)getDevicePercentage;
 -(void)updateDevicePercentage;
 -(void)updateDevicePercentageLabel;

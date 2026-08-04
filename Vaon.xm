@@ -591,6 +591,10 @@ static void vaonLayoutPages() {
         [self updateDevicePercentageLabel];
         self.devicePercentageLabel.frame = self.bounds;
 		self.devicePercentageLabel.textColor = normalBatteryColor;
+		self.devicePercentageLabel.textAlignment = NSTextAlignmentCenter;
+		//pin the label to the height a percentage would take. the enlarged infinity glyph would
+		//otherwise grow the cell, and a centre aligned row pushes half that growth into the glyph
+		[self.devicePercentageLabel.heightAnchor constraintEqualToConstant:[self percentageLabelHeight]].active = TRUE;
 
 		//view placement and constraints for background blur
         self.circleBackgroundVisualEffectView.translatesAutoresizingMaskIntoConstraints = FALSE;
@@ -698,21 +702,31 @@ static void vaonLayoutPages() {
 	}
 
 	//updates a device's percentage and adjusts the label accordingly 
+	-(UIFont *)percentageFont {
+		CGFloat size = customPercentageFontSizeEnabled ? customPercentageFontSize : 12;
+		return [UIFont systemFontOfSize:size weight:(enableBoldPercentage ? UIFontWeightBold : UIFontWeightRegular)];
+	}
+
+	//the row height every cell's label is held to, whatever it ends up rendering
+	-(CGFloat)percentageLabelHeight {
+		return ceil([self percentageFont].lineHeight);
+	}
+
     -(void)updateDevicePercentageLabel {
 		[self updateDevicePercentage];
-		CGFloat fontSize = customPercentageFontSizeEnabled ? customPercentageFontSize : 12;
-		UIFontWeight fontWeight = enableBoldPercentage ? UIFontWeightBold : UIFontWeightRegular;
+		UIFont *font = [self percentageFont];
 
 		//an infinity sign on its own for devices with no level to report. it carries much less ink than
-		//a two or three digit percentage, so size it up to sit level with its neighbours
+		//a two or three digit percentage, so size it up to sit level with its neighbours. the label keeps
+		//its fixed height and the glyph is centred in it, so the cell does not grow
 		if(![self hasBatteryReading]){
-			self.devicePercentageLabel.font = [UIFont systemFontOfSize:fontSize * 1.6 weight:fontWeight];
+			self.devicePercentageLabel.font = [UIFont systemFontOfSize:font.pointSize * 1.5 weight:(enableBoldPercentage ? UIFontWeightBold : UIFontWeightRegular)];
 			self.devicePercentageString = [NSMutableString stringWithString:@"∞"];
 			self.devicePercentageLabel.text = self.devicePercentageString;
 			return;
 		}
 
-		self.devicePercentageLabel.font = [UIFont systemFontOfSize:fontSize weight:fontWeight];
+		self.devicePercentageLabel.font = font;
         self.devicePercentageString = [NSMutableString stringWithFormat:@"%lld",self.devicePercentage];
 		[self addPercentageSymbolToLabel];
         self.devicePercentageLabel.text = self.devicePercentageString;
