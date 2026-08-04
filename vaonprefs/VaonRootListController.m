@@ -57,7 +57,7 @@ static void vaonRespring(void) {
 	}
 	-(void)viewDidLoad {
 		[super viewDidLoad];
-		self.title = @"Battery Color Settings";
+		self.title = @"Cell Color Configuration";
 	}
 	-(void)respring {
 		vaonRespring();

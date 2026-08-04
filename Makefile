@@ -18,7 +18,7 @@ TWEAK_NAME = Vaon
 
 Vaon_FILES = Vaon.xm 
 Vaon_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
-Vaon_FRAMEWORKS += QuartzCore
+Vaon_FRAMEWORKS += QuartzCore CoreText
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 SUBPROJECTS += vaonprefs

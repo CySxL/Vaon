@@ -2,6 +2,7 @@
 
 #import "Vaon.h"
 #import <UIKit/UIKit.h>
+#import <CoreText/CoreText.h>
 #import <dlfcn.h>
 // #import <Foundation/Foundation.h>
 
@@ -37,7 +38,6 @@ BOOL enableBoldPercentage;
 BOOL roundOutlineCorners;
 BOOL pulsateChargingOutline;
 BOOL keepDisconnectedDevices;
-BOOL showBatterylessDevices;
 NSString *batteryTextColor = nil;
 NSString *customBatteryTextColor = nil;
 NSString *batteryGlyphBackgroundMode = nil;
@@ -145,6 +145,26 @@ UIColor* colorFromHexString(NSString *hexString) {
     return [UIColor colorWithRed:((rgbValue & 0xFF0000) >> 16)/255.0 green:((rgbValue & 0xFF00) >> 8)/255.0 blue:(rgbValue & 0xFF)/255.0 alpha:1.0];
 }
 
+//how far the drawn ink of a string sits above its baseline, at its midpoint. lets glyphs of different
+//sizes be lined up on what the eye reads as their centre rather than on font metrics
+static CGFloat vaonInkCenterAboveBaseline(NSString *text, UIFont *font) {
+	CTFontRef ctFont = (__bridge CTFontRef)font;
+	NSUInteger count = text.length;
+	if(count == 0 || count > 8) return font.capHeight / 2;
+	UniChar characters[8];
+	CGGlyph glyphs[8];
+	[text getCharacters:characters range:NSMakeRange(0, count)];
+	if(!CTFontGetGlyphsForCharacters(ctFont, characters, glyphs, count)) return font.capHeight / 2;
+	CGRect ink = CTFontGetBoundingRectsForGlyphs(ctFont, kCTFontOrientationHorizontal, glyphs, NULL, count);
+	if(CGRectIsNull(ink) || CGRectIsEmpty(ink)) return font.capHeight / 2;
+	return CGRectGetMidY(ink);
+}
+
+//where a single line of this font puts its baseline inside a label of the given height
+static CGFloat vaonBaselineInLabel(UIFont *font, CGFloat labelHeight) {
+	return (labelHeight - font.lineHeight) / 2 + font.ascender;
+}
+
 //resolve a colour from a mode/custom pref pair
 static UIColor *vaonColorForMode(NSString *mode, NSString *customColor, UIColor *defaultColor) {
 	if([mode isEqualToString:@"custom"]) return colorFromHexString(customColor);
@@ -208,8 +228,9 @@ static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long lon
 		}
 	}
 
+	//no synchronize here; this runs once per device per switcher open and the store carries the glyph
+	//PNGs, so forcing the whole domain to disk each time is expensive for no gain
 	[prefs setObject:devices forKey:@"knownDevices"];
-	[prefs synchronize];
 }
 
 //record a live connected device; the internal iPhone battery is only recorded when it is shown, so it
@@ -250,18 +271,6 @@ static long long vaonBluetoothPercent(BluetoothDevice *device) {
 	int level = [device batteryLevel];
 	if(level <= 1 || level > 100) return -1;
 	return level;
-}
-
-//a device is pinned if the identifier or the name matches a stored pin
-static BOOL vaonIsPinned(NSString *identifier, NSString *name) {
-	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"];
-	if(pinned.count == 0) return FALSE;
-	if([pinned containsObject:identifier]) return TRUE;
-	if(name.length == 0) return FALSE;
-	for(NSDictionary *d in [prefs objectForKey:@"knownDevices"]){
-		if([d[@"name"] isEqualToString:name] && [pinned containsObject:d[@"identifier"]]) return TRUE;
-	}
-	return FALSE;
 }
 
 //record a connected Bluetooth accessory under its address so it can be pinned even with no battery.
@@ -545,6 +554,10 @@ static void vaonLayoutPages() {
 
 	//designated init: works from either a live device or persisted values
     -(instancetype)initWithFrame:(CGRect)arg1 device:(BCBatteryDevice *)connectedDevice glyphImage:(UIImage *)pGlyph percentage:(long long)pPercentage name:(NSString *)pName identifier:(NSString *)pIdentifier productIdentifier:(long long)pProductId disconnected:(BOOL)isDisconnected {
+		//initialize view placement
+        self = [super initWithFrame:arg1];
+        if(!self) return nil;
+
         self.device = connectedDevice;
 		if(customBatteryCellSizeEnabled){
         	self.cellWidth = CGFloat(customBatteryCellSize);
@@ -553,8 +566,6 @@ static void vaonLayoutPages() {
 		}
         self.devicePercentage = pPercentage;
 
-		//initialize view placement
-        self = [super initWithFrame:arg1];
         self.axis = UILayoutConstraintAxisVertical;
         self.alignment = UIStackViewAlignmentCenter;
 		if(paddingBetweenGlyphAndLabelEnabled){
@@ -717,15 +728,21 @@ static void vaonLayoutPages() {
 		UIFont *font = [self percentageFont];
 
 		//an infinity sign on its own for devices with no level to report. it carries much less ink than
-		//a two or three digit percentage, so size it up to sit level with its neighbours. the label keeps
-		//its fixed height and the glyph is centred in it, so the cell does not grow
+		//a two or three digit percentage, so size it up. the label keeps its fixed height so the cell
+		//does not grow, and the glyph is nudged onto the same centre line as the digits beside it
 		if(![self hasBatteryReading]){
-			self.devicePercentageLabel.font = [UIFont systemFontOfSize:font.pointSize * 1.5 weight:(enableBoldPercentage ? UIFontWeightBold : UIFontWeightRegular)];
+			UIFont *large = [UIFont systemFontOfSize:font.pointSize * 1.5 weight:(enableBoldPercentage ? UIFontWeightBold : UIFontWeightRegular)];
+			CGFloat height = [self percentageLabelHeight];
+			CGFloat digitCenter = vaonBaselineInLabel(font, height) - vaonInkCenterAboveBaseline(@"0", font);
+			CGFloat signCenter = vaonBaselineInLabel(large, height) - vaonInkCenterAboveBaseline(@"∞", large);
+			self.devicePercentageLabel.font = large;
+			self.devicePercentageLabel.transform = CGAffineTransformMakeTranslation(0, digitCenter - signCenter);
 			self.devicePercentageString = [NSMutableString stringWithString:@"∞"];
 			self.devicePercentageLabel.text = self.devicePercentageString;
 			return;
 		}
 
+		self.devicePercentageLabel.transform = CGAffineTransformIdentity;
 		self.devicePercentageLabel.font = font;
         self.devicePercentageString = [NSMutableString stringWithFormat:@"%lld",self.devicePercentage];
 		[self addPercentageSymbolToLabel];
@@ -830,9 +847,12 @@ static void vaonLayoutPages() {
 		if([self shouldPulsateOutline]){
 			CAMediaTimingFunction *animationColorTimingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionDefault];
 
-			//initializes animations
-			CABasicAnimation *normalToBright = [CABasicAnimation animationWithKeyPath:@"strokeColor"];	
+			//initializes animations. the cell holds both, so the delegates can reference the other one
+			//weakly; retaining it there would leave the pair alive for the life of the process
+			CABasicAnimation *normalToBright = [CABasicAnimation animationWithKeyPath:@"strokeColor"];
 			CABasicAnimation *brightToNormal = [CABasicAnimation animationWithKeyPath:@"strokeColor"];
+			self.pulsateToBright = normalToBright;
+			self.pulsateToNormal = brightToNormal;
 
 			//assigns delegate to animations 
 			PulsateColorAnimationDelegate *normalToBrightDelegate = [[PulsateColorAnimationDelegate alloc] initWithCell:self nextAnimation:brightToNormal];
@@ -1090,9 +1110,8 @@ void updateBatteryView(){
 			}
 		}
 
-		//second pass over everything connected over Bluetooth. these are recorded whether or not they
-		//report a battery, so a speaker iOS has no percentage for can still be pinned from the prefs.
-		//batteryless ones are only shown when pinned or when the pref asks for them
+		//second pass over everything connected over Bluetooth, whether or not it reports a battery, so
+		//a speaker iOS has no percentage for still shows and can still be pinned
 		connectedBluetoothAccessories = vaonConnectedBluetoothAccessories();
 		for(BluetoothDevice *btDevice in connectedBluetoothAccessories){
 			if(![btDevice connected]) continue;
@@ -1103,8 +1122,6 @@ void updateBatteryView(){
 
 			long long percent = vaonBluetoothPercent(btDevice);
 			vaonRecordBluetoothDevice(btDevice, percent);
-
-			if(percent < 0 && !showBatterylessDevices && !vaonIsPinned(btAddress, btName)) continue;
 
 			BOOL duplicate = FALSE;
 			for(VaonDeviceBatteryCell *subview in batteryHStackView.subviews){
@@ -1167,7 +1184,7 @@ void updateBatteryView(){
 
 			//checks if the device is not connected anymore
 			if(subview.bluetoothDevice ? ![subview.bluetoothDevice connected]
-				: (![connectedBluetoothDevices containsObject:subview.device] && ![subview.device isConnected])){
+				: (!(subview.device && [connectedBluetoothDevices containsObject:subview.device]) && ![subview.device isConnected])){
 				//if keep is turned on, keep the device and just update its properties
 				if(keepDisconnectedDevices || subview.pinned){
 					if(subview.device == nil){
@@ -1551,7 +1568,6 @@ void updateSettings(){
 		@"roundOutlineCorners": @TRUE,
 		@"pulsateChargingOutline": @TRUE,
 		@"keepDisconnectedDevices": @TRUE,
-		@"showBatterylessDevices": @FALSE,
 		@"devicesPerPage": @4,
 		@"showPageDots": @TRUE,
 		@"pageDotsOnlyWhileSwiping": @FALSE,
@@ -1612,7 +1628,6 @@ void updateSettings(){
 	roundOutlineCorners = [[prefs objectForKey:@"roundOutlineCorners"] boolValue];
 	pulsateChargingOutline = [[prefs objectForKey:@"pulsateChargingOutline"] boolValue];
 	keepDisconnectedDevices = [[prefs objectForKey:@"keepDisconnectedDevices"] boolValue];
-	showBatterylessDevices = [[prefs objectForKey:@"showBatterylessDevices"] boolValue];
 	devicesPerPage = [[prefs objectForKey:@"devicesPerPage"] integerValue];
 	if(devicesPerPage < 1) devicesPerPage = 1;
 	if(devicesPerPage > 10) devicesPerPage = 10;

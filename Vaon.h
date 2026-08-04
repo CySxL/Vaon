@@ -63,6 +63,9 @@
 @property (nonatomic, strong) CAShapeLayer *circleOutlineLayer;
 @property (nonatomic, strong) UIImageView *deviceGlyphView;
 @property (nonatomic, strong) CABasicAnimation *percentageAnimation;
+//the cell owns both halves of the pulse so the two animations do not have to retain each other
+@property (nonatomic, strong) CABasicAnimation *pulsateToBright;
+@property (nonatomic, strong) CABasicAnimation *pulsateToNormal;
 -(CGFloat)getCellWidth;
 -(void)setCellWidth:(CGFloat)arg1;
 -(void)addPercentageSymbolToLabel;
@@ -96,7 +99,7 @@
 @interface PulsateColorAnimationDelegate : NSObject <CAAnimationDelegate>
 -(instancetype)initWithCell:(VaonDeviceBatteryCell *)cell nextAnimation:(CAAnimation *)nextAnimation;
 @property (nonatomic, weak) VaonDeviceBatteryCell *cell;
-@property (nonatomic, strong) CAAnimation *nextAnimation;
+@property (nonatomic, weak) CAAnimation *nextAnimation;
 -(void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag;
 @end
 
