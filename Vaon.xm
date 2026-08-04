@@ -106,7 +106,6 @@ NSArray *connectedBluetoothAccessories;
 UIColor *normalBatteryColor = [UIColor colorWithRed:0.1882352941 green:0.8196078431 blue:0.3450980392 alpha: 1];
 UIColor *lowPowerModeColor = [UIColor colorWithRed:1 green:0.8 blue:0 alpha:1];
 UIColor *lowBatteryColor = [UIColor redColor];
-UIColor *noBatteryReadingColor = [UIColor colorWithRed:0.5215686275 green:0.3764705882 blue:0.8392156863 alpha:1];
 UIColor *darkGrayColor = [UIColor colorWithRed:0.1746478873 green:0.2039215686 blue:0.1960784314 alpha: 1];
 
 //timers to initiate animations
@@ -131,6 +130,12 @@ NSString *customLowBatteryColor;
 NSString *customChargingColorMode;
 NSString *customChargingColor;
 
+NSString *customNoBatteryConnectedColorMode;
+NSString *customNoBatteryConnectedColor;
+
+NSString *customNoBatteryDisconnectedColorMode;
+NSString *customNoBatteryDisconnectedColor;
+
 UIColor* colorFromHexString(NSString *hexString) {
     if(hexString.length == 0) return [UIColor clearColor];
     unsigned rgbValue = 0;
@@ -138,6 +143,13 @@ UIColor* colorFromHexString(NSString *hexString) {
     if([hexString hasPrefix:@"#"]) [scanner setScanLocation:1];
     [scanner scanHexInt:&rgbValue];
     return [UIColor colorWithRed:((rgbValue & 0xFF0000) >> 16)/255.0 green:((rgbValue & 0xFF00) >> 8)/255.0 blue:(rgbValue & 0xFF)/255.0 alpha:1.0];
+}
+
+//resolve a colour from a mode/custom pref pair
+static UIColor *vaonColorForMode(NSString *mode, NSString *customColor, UIColor *defaultColor) {
+	if([mode isEqualToString:@"custom"]) return colorFromHexString(customColor);
+	if([mode isEqualToString:@"system"]) return [UIColor systemBlueColor];
+	return defaultColor;
 }
 
 //upsert a device into the shared knownDevices store; glyph is captured once, writes only on change.
@@ -459,7 +471,7 @@ static void vaonLayoutPages() {
 
 	//keeps the outline at a static position when it finishes animating
     -(void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag {
-		if(flag && pulsateChargingOutline){
+		if(flag){
 			[self.cell pulsateOutline];
 		}
 	}
@@ -478,12 +490,14 @@ static void vaonLayoutPages() {
 	
 	//when the animation finishes change the color and start another pulsate animation
     -(void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag {
-		if(flag && pulsateChargingOutline){
-			if([self.cell.device isCharging]){
+		if(flag && self.cell){
+			if([self.cell shouldPulsateOutline]){
 				[self.cell.circleOutlineLayer addAnimation:self.nextAnimation forKey:kCATransition];
 			}else{
-				self.cell.circleOutlineLayer.strokeColor = normalBatteryColor.CGColor;
-			}			
+				//drop the held pulse frame so the restored colour is actually visible
+				[self.cell.circleOutlineLayer removeAnimationForKey:kCATransition];
+				[self.cell updateOutlineColor];
+			}
 		}
 	}
 @end
@@ -572,26 +586,9 @@ static void vaonLayoutPages() {
 		self.circleBackgroundVisualEffectView.frame = self.bounds;
        	self.circleBackgroundVisualEffectView.contentMode = UIViewContentModeScaleAspectFill;
 
-		//battery percentage label
+		//battery percentage label; updateDevicePercentageLabel sets both the text and the font
         self.devicePercentageLabel = [[UILabel alloc] init];
         [self updateDevicePercentageLabel];
-        [self addPercentageSymbolToLabel];
-
-		//font customization
-		UIFont *devicePercentageLabelFont = [[UIFont alloc] init];
-		//custom font size from prefs
-		UIFontWeight percentageFontWeight;
-		if(enableBoldPercentage) {
-			percentageFontWeight = UIFontWeightBold;
-		} else {
-			percentageFontWeight = UIFontWeightRegular;
-		}
-		if(customPercentageFontSizeEnabled){
-        	devicePercentageLabelFont = [UIFont systemFontOfSize:customPercentageFontSize weight:percentageFontWeight];
-		} else{
-        	devicePercentageLabelFont = [UIFont systemFontOfSize:12 weight:percentageFontWeight];
-		}
-        self.devicePercentageLabel.font = devicePercentageLabelFont;
         self.devicePercentageLabel.frame = self.bounds;
 		self.devicePercentageLabel.textColor = normalBatteryColor;
 
@@ -703,13 +700,19 @@ static void vaonLayoutPages() {
 	//updates a device's percentage and adjusts the label accordingly 
     -(void)updateDevicePercentageLabel {
 		[self updateDevicePercentage];
-		//an infinity sign for devices with no level to report, rather than a fake number
+		CGFloat fontSize = customPercentageFontSizeEnabled ? customPercentageFontSize : 12;
+		UIFontWeight fontWeight = enableBoldPercentage ? UIFontWeightBold : UIFontWeightRegular;
+
+		//an infinity sign on its own for devices with no level to report. it carries much less ink than
+		//a two or three digit percentage, so size it up to sit level with its neighbours
 		if(![self hasBatteryReading]){
+			self.devicePercentageLabel.font = [UIFont systemFontOfSize:fontSize * 1.6 weight:fontWeight];
 			self.devicePercentageString = [NSMutableString stringWithString:@"∞"];
-			[self addPercentageSymbolToLabel];
 			self.devicePercentageLabel.text = self.devicePercentageString;
 			return;
 		}
+
+		self.devicePercentageLabel.font = [UIFont systemFontOfSize:fontSize weight:fontWeight];
         self.devicePercentageString = [NSMutableString stringWithFormat:@"%lld",self.devicePercentage];
 		[self addPercentageSymbolToLabel];
         self.devicePercentageLabel.text = self.devicePercentageString;
@@ -774,7 +777,9 @@ static void vaonLayoutPages() {
 			}
 		} else {
 			if(![self isDeviceConnected]){
-				if([customDisconnectedDeviceColorMode isEqualToString:@"custom"]) {
+				if(![self hasBatteryReading]){
+					self.circleOutlineLayer.strokeColor = vaonColorForMode(customNoBatteryDisconnectedColorMode, customNoBatteryDisconnectedColor, [UIColor systemGrayColor]).CGColor;
+				} else if([customDisconnectedDeviceColorMode isEqualToString:@"custom"]) {
 					self.circleOutlineLayer.strokeColor = colorFromHexString(customDisconnectedDeviceColor).CGColor;
 				} else if([customDisconnectedDeviceColorMode isEqualToString:@"system"]) {
 					self.circleOutlineLayer.strokeColor = [UIColor systemBlueColor].CGColor;
@@ -782,7 +787,7 @@ static void vaonLayoutPages() {
 					self.circleOutlineLayer.strokeColor = [UIColor systemGrayColor].CGColor;
 				}
 			} else if(![self hasBatteryReading]){
-				self.circleOutlineLayer.strokeColor = noBatteryReadingColor.CGColor;
+				self.circleOutlineLayer.strokeColor = [self noBatteryConnectedColor].CGColor;
 			} else {
 				if([customConnectedDeviceColorMode isEqualToString:@"custom"]) {
 					self.circleOutlineLayer.strokeColor = colorFromHexString(customConnectedDeviceColor).CGColor;
@@ -795,9 +800,20 @@ static void vaonLayoutPages() {
 		}
 	}
 
-	//starts the pulsating color animation sequence for charging devices
+	-(UIColor *)noBatteryConnectedColor {
+		return vaonColorForMode(customNoBatteryConnectedColorMode, customNoBatteryConnectedColor, normalBatteryColor);
+	}
+
+	//charging devices pulse when the pref is on; devices with no level pulse to show they are live
+	-(BOOL)shouldPulsateOutline {
+		if(![self isDeviceConnected]) return FALSE;
+		if(![self hasBatteryReading]) return TRUE;
+		return pulsateChargingOutline && [self.device isCharging];
+	}
+
+	//starts the pulsating color animation sequence
 	-(void)pulsateOutline {
-		if([self.device isCharging]){
+		if([self shouldPulsateOutline]){
 			CAMediaTimingFunction *animationColorTimingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionDefault];
 
 			//initializes animations
@@ -810,7 +826,9 @@ static void vaonLayoutPages() {
 			PulsateColorAnimationDelegate *brightToNormalDelegate = [[PulsateColorAnimationDelegate alloc] initWithCell:self nextAnimation:normalToBright];
 			brightToNormal.delegate = brightToNormalDelegate;
 
-			if([customChargingColorMode isEqualToString:@"custom"]) {
+			if(![self hasBatteryReading]) {
+				normalToBright.fromValue = id([self noBatteryConnectedColor].CGColor);
+			} else if([customChargingColorMode isEqualToString:@"custom"]) {
 				normalToBright.fromValue = id(colorFromHexString(customChargingColor).CGColor);
 			} else if([customChargingColorMode isEqualToString:@"system"]) {
 				normalToBright.fromValue = id([UIColor systemBlueColor].CGColor);
@@ -1547,7 +1565,11 @@ void updateSettings(){
 		@"customLowBatteryColorMode": @"default",
 		@"customLowBatteryColor": @"#33b5e5",
 		@"customChargingColorMode": @"default",
-		@"customChargingColor": @"#33b5e5"
+		@"customChargingColor": @"#33b5e5",
+		@"customNoBatteryConnectedColorMode": @"custom",
+		@"customNoBatteryConnectedColor": @"#8560d6",
+		@"customNoBatteryDisconnectedColorMode": @"default",
+		@"customNoBatteryDisconnectedColor": @"#8560d6"
 	}];
 
 	isEnabled = [[prefs objectForKey:@"isEnabled"] boolValue];
@@ -1607,6 +1629,10 @@ void updateSettings(){
 	customLowBatteryColor = [prefs objectForKey:@"customLowBatteryColor"];
 	customChargingColorMode = [prefs objectForKey:@"customChargingColorMode"];
 	customChargingColor = [prefs objectForKey:@"customChargingColor"];
+	customNoBatteryConnectedColorMode = [prefs objectForKey:@"customNoBatteryConnectedColorMode"];
+	customNoBatteryConnectedColor = [prefs objectForKey:@"customNoBatteryConnectedColor"];
+	customNoBatteryDisconnectedColorMode = [prefs objectForKey:@"customNoBatteryDisconnectedColorMode"];
+	customNoBatteryDisconnectedColor = [prefs objectForKey:@"customNoBatteryDisconnectedColor"];
 }
 
 %ctor {

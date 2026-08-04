@@ -73,6 +73,8 @@
 -(CGFloat)devicePercentageAsProgress;
 -(BOOL)isDeviceConnected;
 -(BOOL)hasBatteryReading;
+-(BOOL)shouldPulsateOutline;
+-(UIColor *)noBatteryConnectedColor;
 -(BOOL)isDeviceInternal;
 -(BOOL)isLowPowerModeOn;
 -(BOOL)isBatteryLow;

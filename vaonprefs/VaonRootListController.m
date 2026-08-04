@@ -121,7 +121,7 @@ static void vaonRespring(void) {
 	}
 	-(void)viewDidLoad {
 		[super viewDidLoad];
-		self.title = @"Battery Settings";
+		self.title = @"Battery Configuration";
 	}
 	-(void)respring {
 		vaonRespring();
