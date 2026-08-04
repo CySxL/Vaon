@@ -106,6 +106,7 @@ NSArray *connectedBluetoothAccessories;
 UIColor *normalBatteryColor = [UIColor colorWithRed:0.1882352941 green:0.8196078431 blue:0.3450980392 alpha: 1];
 UIColor *lowPowerModeColor = [UIColor colorWithRed:1 green:0.8 blue:0 alpha:1];
 UIColor *lowBatteryColor = [UIColor redColor];
+UIColor *noBatteryReadingColor = [UIColor colorWithRed:0.5215686275 green:0.3764705882 blue:0.8392156863 alpha:1];
 UIColor *darkGrayColor = [UIColor colorWithRed:0.1746478873 green:0.2039215686 blue:0.1960784314 alpha: 1];
 
 //timers to initiate animations
@@ -142,7 +143,7 @@ UIColor* colorFromHexString(NSString *hexString) {
 //upsert a device into the shared knownDevices store; glyph is captured once, writes only on change.
 //source is @"bluetooth" for BluetoothManager records and nil for BatteryCenter ones; a BatteryCenter
 //record replaces the Bluetooth record of the same device, since it carries the real glyph and battery
-static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long long productId, UIImage *glyph, long long percentage, NSString *source, NSString *diagnostic) {
+static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long long productId, UIImage *glyph, long long percentage, NSString *source) {
 	if(identifier.length == 0) return;
 	NSArray *existing = [prefs objectForKey:@"knownDevices"];
 	NSMutableArray *devices = existing ? [existing mutableCopy] : [NSMutableArray array];
@@ -157,8 +158,7 @@ static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long lon
 		|| [old[@"productIdentifier"] longLongValue] != productId
 		|| [old[@"lastPercentage"] longLongValue] != percentage
 		|| (!hasGlyph && glyph != nil)
-		|| ![(old[@"source"] ?: @"") isEqualToString:(source ?: @"")]
-		|| ![(old[@"btDiagnostic"] ?: @"") isEqualToString:(diagnostic ?: @"")];
+		|| ![(old[@"source"] ?: @"") isEqualToString:(source ?: @"")];
 	if(!changed) return;
 	NSMutableDictionary *record = old ? [old mutableCopy] : [NSMutableDictionary dictionary];
 	record[@"identifier"] = identifier;
@@ -166,7 +166,6 @@ static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long lon
 	record[@"productIdentifier"] = @(productId);
 	record[@"lastPercentage"] = @(percentage);
 	if(source) record[@"source"] = source; else [record removeObjectForKey:@"source"];
-	if(diagnostic) record[@"btDiagnostic"] = diagnostic; else [record removeObjectForKey:@"btDiagnostic"];
 	if(glyph && !hasGlyph){
 		NSData *png = UIImagePNGRepresentation(glyph);
 		if(png) record[@"glyph"] = png;
@@ -212,7 +211,7 @@ static void vaonRecordDevice(BCBatteryDevice *device) {
 		if([d[@"identifier"] isEqualToString:ident] && d[@"glyph"]){ haveGlyph = YES; break; }
 	}
 	UIImage *glyph = haveGlyph ? nil : [device batteryWidgetGlyph];
-	vaonUpsertKnownDevice(ident, [device name], [device productIdentifier], glyph, [device percentCharge], nil, nil);
+	vaonUpsertKnownDevice(ident, [device name], [device productIdentifier], glyph, [device percentCharge], nil);
 }
 
 //BatteryCenter only lists accessories that report a battery level to iOS, so speakers and soundbars
@@ -231,59 +230,14 @@ static NSArray *vaonConnectedBluetoothAccessories() {
 	return [manager connectedDevices] ?: @[];
 }
 
-//the accessory's battery percentage, or -1 when it reports none. the public headers declare
-//batteryLevel as int but the shipping implementation returns a float on some builds, so read the
-//value through the runtime signature rather than trusting a prototype
+//the accessory's battery percentage, or -1 when it reports none. accessories with no real level still
+//answer YES to supportsBatteryLevel and hand back 1 as a placeholder, so anything at or below 1 is
+//treated as no reading rather than a device about to die
 static long long vaonBluetoothPercent(BluetoothDevice *device) {
-	SEL sel = @selector(batteryLevel);
-	if(![device respondsToSelector:sel]) return -1;
-	if([device respondsToSelector:@selector(supportsBatteryLevel)] && ![device supportsBatteryLevel]) return -1;
-
-	NSMethodSignature *signature = [device methodSignatureForSelector:sel];
-	if(!signature) return -1;
-	NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
-	[invocation setSelector:sel];
-	[invocation invokeWithTarget:device];
-
-	double value = 0;
-	BOOL fractional = FALSE;
-	switch([signature methodReturnType][0]){
-		case 'f': { float v = 0; [invocation getReturnValue:&v]; value = v; fractional = TRUE; break; }
-		case 'd': { double v = 0; [invocation getReturnValue:&v]; value = v; fractional = TRUE; break; }
-		case 'i': { int v = 0; [invocation getReturnValue:&v]; value = v; break; }
-		case 'I': { unsigned int v = 0; [invocation getReturnValue:&v]; value = v; break; }
-		case 'q': { long long v = 0; [invocation getReturnValue:&v]; value = v; break; }
-		case 'Q': { unsigned long long v = 0; [invocation getReturnValue:&v]; value = v; break; }
-		case 's': { short v = 0; [invocation getReturnValue:&v]; value = v; break; }
-		case 'S': { unsigned short v = 0; [invocation getReturnValue:&v]; value = v; break; }
-		case 'c': { signed char v = 0; [invocation getReturnValue:&v]; value = v; break; }
-		case 'C': { unsigned char v = 0; [invocation getReturnValue:&v]; value = v; break; }
-		default: return -1;
-	}
-
-	//a float return is a 0-1 fraction, an integer one is already a percentage
-	if(fractional && value > 0 && value <= 1.0) value *= 100;
-	if(value <= 0) return -1;
-	long long percent = (long long)(value + 0.5);
-	return (percent > 0 && percent <= 100) ? percent : -1;
-}
-
-//temporary diagnostic: the raw batteryLevel return type and value, stored on the device record so it
-//shows in the Pinned Devices list. remove once the reporting shape is confirmed on device
-static NSString *vaonBluetoothDiagnostic(BluetoothDevice *device) {
-	NSMethodSignature *signature = [device methodSignatureForSelector:@selector(batteryLevel)];
-	if(!signature) return @"no batteryLevel";
-	const char *type = [signature methodReturnType];
-	NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
-	[invocation setSelector:@selector(batteryLevel)];
-	[invocation invokeWithTarget:device];
-	float asFloat = 0; int asInt = 0; long long asLong = 0;
-	if(type[0] == 'f') [invocation getReturnValue:&asFloat];
-	else if(type[0] == 'i' || type[0] == 'I') [invocation getReturnValue:&asInt];
-	else if(type[0] == 'q' || type[0] == 'Q') [invocation getReturnValue:&asLong];
-	int supports = [device respondsToSelector:@selector(supportsBatteryLevel)] ? [device supportsBatteryLevel] : -1;
-	return [NSString stringWithFormat:@"ret=%s f=%.4f i=%d q=%lld sup=%d -> %lld",
-		type, asFloat, asInt, asLong, supports, vaonBluetoothPercent(device)];
+	if(![device respondsToSelector:@selector(batteryLevel)]) return -1;
+	int level = [device batteryLevel];
+	if(level <= 1 || level > 100) return -1;
+	return level;
 }
 
 //a device is pinned if the identifier or the name matches a stored pin
@@ -309,7 +263,7 @@ static void vaonRecordBluetoothDevice(BluetoothDevice *device, long long percent
 			if(![d[@"source"] isEqualToString:@"bluetooth"] && [d[@"name"] isEqualToString:name]) return;
 		}
 	}
-	vaonUpsertKnownDevice(address, name, (long long)[device productId], nil, percent, @"bluetooth", vaonBluetoothDiagnostic(device));
+	vaonUpsertKnownDevice(address, name, (long long)[device productId], nil, percent, @"bluetooth");
 }
 
 //returns a user-chosen SF Symbol glyph for a device name, or nil to use the default battery glyph
@@ -749,9 +703,10 @@ static void vaonLayoutPages() {
 	//updates a device's percentage and adjusts the label accordingly 
     -(void)updateDevicePercentageLabel {
 		[self updateDevicePercentage];
-		//an en dash keeps the cell the same height as its neighbours without showing a fake number
+		//an infinity sign for devices with no level to report, rather than a fake number
 		if(![self hasBatteryReading]){
-			self.devicePercentageString = [NSMutableString stringWithString:@"–"];
+			self.devicePercentageString = [NSMutableString stringWithString:@"∞"];
+			[self addPercentageSymbolToLabel];
 			self.devicePercentageLabel.text = self.devicePercentageString;
 			return;
 		}
@@ -765,7 +720,8 @@ static void vaonLayoutPages() {
 	}
 
 	-(CGFloat)devicePercentageAsProgress {
-		if(![self hasBatteryReading]) return 0;
+		//a full ring for devices with no level, to match the infinity sign
+		if(![self hasBatteryReading]) return 1;
 		double progress = self.devicePercentage;
 		return progress/100;
 	}
@@ -825,6 +781,8 @@ static void vaonLayoutPages() {
 				} else {
 					self.circleOutlineLayer.strokeColor = [UIColor systemGrayColor].CGColor;
 				}
+			} else if(![self hasBatteryReading]){
+				self.circleOutlineLayer.strokeColor = noBatteryReadingColor.CGColor;
 			} else {
 				if([customConnectedDeviceColorMode isEqualToString:@"custom"]) {
 					self.circleOutlineLayer.strokeColor = colorFromHexString(customConnectedDeviceColor).CGColor;
@@ -878,11 +836,6 @@ static void vaonLayoutPages() {
 
 	//makes percentage label green if charging
 	-(void)updatePercentageColor {
-		//the dash is an absence of data, so it recedes instead of competing with real percentages
-		if(![self hasBatteryReading]){
-			self.devicePercentageLabel.textColor = [UIColor secondaryLabelColor];
-			return;
-		}
 		if([self.device isCharging]){
 			if([customChargingColorMode isEqualToString:@"custom"]) {
 				self.devicePercentageLabel.textColor = colorFromHexString(customChargingColor);

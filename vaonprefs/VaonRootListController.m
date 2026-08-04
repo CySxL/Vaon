@@ -480,13 +480,6 @@ static void vaonRespring(void) {
 		cell.textLabel.text = dev[@"name"] ?: dev[@"identifier"];
 		long long last = [dev[@"lastPercentage"] longLongValue];
 		cell.detailTextLabel.text = (last < 0) ? @"No battery reporting" : [NSString stringWithFormat:@"%lld%%", last];
-		//temporary: surfaces the raw batteryLevel reading so it can be read without log tooling
-		NSString *diagnostic = dev[@"btDiagnostic"];
-		if([diagnostic isKindOfClass:[NSString class]] && diagnostic.length){
-			cell.detailTextLabel.text = [NSString stringWithFormat:@"%@  |  %@", cell.detailTextLabel.text, diagnostic];
-			cell.detailTextLabel.font = [UIFont monospacedDigitSystemFontOfSize:11 weight:UIFontWeightRegular];
-			cell.detailTextLabel.numberOfLines = 2;
-		}
 		NSString *customSym = dev[@"customGlyph"];
 		if([customSym isKindOfClass:[NSString class]] && customSym.length){
 			cell.imageView.image = [[UIImage systemImageNamed:customSym] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
