@@ -478,17 +478,27 @@ static void vaonRespring(void) {
 		}
 		NSDictionary *dev = [self deviceAtIndexPath:indexPath];
 		cell.textLabel.text = dev[@"name"] ?: dev[@"identifier"];
-		cell.detailTextLabel.text = [NSString stringWithFormat:@"%@%%", dev[@"lastPercentage"] ?: @0];
+		long long last = [dev[@"lastPercentage"] longLongValue];
+		cell.detailTextLabel.text = (last < 0) ? @"No battery reporting" : [NSString stringWithFormat:@"%lld%%", last];
+		//temporary: surfaces the raw batteryLevel reading so it can be read without log tooling
+		NSString *diagnostic = dev[@"btDiagnostic"];
+		if([diagnostic isKindOfClass:[NSString class]] && diagnostic.length){
+			cell.detailTextLabel.text = [NSString stringWithFormat:@"%@  |  %@", cell.detailTextLabel.text, diagnostic];
+			cell.detailTextLabel.font = [UIFont monospacedDigitSystemFontOfSize:11 weight:UIFontWeightRegular];
+			cell.detailTextLabel.numberOfLines = 2;
+		}
 		NSString *customSym = dev[@"customGlyph"];
 		if([customSym isKindOfClass:[NSString class]] && customSym.length){
 			cell.imageView.image = [[UIImage systemImageNamed:customSym] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
 			cell.imageView.tintColor = [UIColor labelColor];
 		} else {
 			NSData *g = dev[@"glyph"];
-			if([g isKindOfClass:[NSData class]]){
-				cell.imageView.image = [[UIImage imageWithData:g] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-				cell.imageView.tintColor = [UIColor labelColor];
-			}
+			UIImage *img = [g isKindOfClass:[NSData class]] ? [UIImage imageWithData:g] : nil;
+			//Bluetooth-sourced records carry no battery widget glyph, so show the same generic one the
+			//switcher uses; without an image the icon has no frame and cannot be tapped to pick a symbol
+			if(!img) img = [UIImage systemImageNamed:@"antenna.radiowaves.left.and.right"];
+			cell.imageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+			cell.imageView.tintColor = [UIColor labelColor];
 		}
 		cell.imageView.userInteractionEnabled = YES;
 		[cell.imageView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(glyphTapped:)]];

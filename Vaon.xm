@@ -2,6 +2,7 @@
 
 #import "Vaon.h"
 #import <UIKit/UIKit.h>
+#import <dlfcn.h>
 // #import <Foundation/Foundation.h>
 
 
@@ -36,6 +37,7 @@ BOOL enableBoldPercentage;
 BOOL roundOutlineCorners;
 BOOL pulsateChargingOutline;
 BOOL keepDisconnectedDevices;
+BOOL showBatterylessDevices;
 NSString *batteryTextColor = nil;
 NSString *customBatteryTextColor = nil;
 NSString *batteryGlyphBackgroundMode = nil;
@@ -90,15 +92,16 @@ static BOOL vaonIsLandscape(UIView *view);
 static void vaonApplyOrientationLayout(UIView *host);
 
 SBSwitcherAppSuggestionContentView *switcherContentView;
-long long currentSwitcherStyle;
-BOOL stockHidden = TRUE;
 //frontmost app bundle id captured when the switcher opened; used to tell a cancelled leave (same
 //front app, switcher stays) from an app launch or going home (front app changes)
 NSString *vaonOpenFrontApp;
+long long currentSwitcherStyle;
+BOOL stockHidden = TRUE;
 //set at fade-in completion, cleared at fade-out start; stockHidden is unreliable on iOS 16
 BOOL vaonShown = FALSE;
 
 NSArray *connectedBluetoothDevices;
+NSArray *connectedBluetoothAccessories;
 
 UIColor *normalBatteryColor = [UIColor colorWithRed:0.1882352941 green:0.8196078431 blue:0.3450980392 alpha: 1];
 UIColor *lowPowerModeColor = [UIColor colorWithRed:1 green:0.8 blue:0 alpha:1];
@@ -136,8 +139,10 @@ UIColor* colorFromHexString(NSString *hexString) {
     return [UIColor colorWithRed:((rgbValue & 0xFF0000) >> 16)/255.0 green:((rgbValue & 0xFF00) >> 8)/255.0 blue:(rgbValue & 0xFF)/255.0 alpha:1.0];
 }
 
-//upsert a device into the shared knownDevices store; glyph is captured once, writes only on change
-static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long long productId, UIImage *glyph, long long percentage) {
+//upsert a device into the shared knownDevices store; glyph is captured once, writes only on change.
+//source is @"bluetooth" for BluetoothManager records and nil for BatteryCenter ones; a BatteryCenter
+//record replaces the Bluetooth record of the same device, since it carries the real glyph and battery
+static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long long productId, UIImage *glyph, long long percentage, NSString *source, NSString *diagnostic) {
 	if(identifier.length == 0) return;
 	NSArray *existing = [prefs objectForKey:@"knownDevices"];
 	NSMutableArray *devices = existing ? [existing mutableCopy] : [NSMutableArray array];
@@ -151,18 +156,47 @@ static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long lon
 		|| ![(old[@"name"] ?: @"") isEqualToString:(name ?: @"")]
 		|| [old[@"productIdentifier"] longLongValue] != productId
 		|| [old[@"lastPercentage"] longLongValue] != percentage
-		|| (!hasGlyph && glyph != nil);
+		|| (!hasGlyph && glyph != nil)
+		|| ![(old[@"source"] ?: @"") isEqualToString:(source ?: @"")]
+		|| ![(old[@"btDiagnostic"] ?: @"") isEqualToString:(diagnostic ?: @"")];
 	if(!changed) return;
 	NSMutableDictionary *record = old ? [old mutableCopy] : [NSMutableDictionary dictionary];
 	record[@"identifier"] = identifier;
 	if(name) record[@"name"] = name;
 	record[@"productIdentifier"] = @(productId);
 	record[@"lastPercentage"] = @(percentage);
+	if(source) record[@"source"] = source; else [record removeObjectForKey:@"source"];
+	if(diagnostic) record[@"btDiagnostic"] = diagnostic; else [record removeObjectForKey:@"btDiagnostic"];
 	if(glyph && !hasGlyph){
 		NSData *png = UIImagePNGRepresentation(glyph);
 		if(png) record[@"glyph"] = png;
 	}
 	if(idx == NSNotFound) [devices addObject:record]; else devices[idx] = record;
+
+	//drop the Bluetooth stand-in for this device now that BatteryCenter knows it, and move its pin over
+	if(source == nil && name.length){
+		NSMutableArray *stale = [NSMutableArray array];
+		for(NSDictionary *d in devices){
+			if([d[@"source"] isEqualToString:@"bluetooth"] && [d[@"name"] isEqualToString:name] && ![d[@"identifier"] isEqualToString:identifier]){
+				[stale addObject:d];
+			}
+		}
+		if(stale.count){
+			NSMutableArray *pinned = [([prefs arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[]) mutableCopy];
+			BOOL pinsChanged = FALSE;
+			for(NSDictionary *d in stale){
+				NSUInteger p = [pinned indexOfObject:d[@"identifier"]];
+				if(p != NSNotFound){
+					if([pinned containsObject:identifier]) [pinned removeObjectAtIndex:p];
+					else pinned[p] = identifier;
+					pinsChanged = TRUE;
+				}
+				[devices removeObject:d];
+			}
+			if(pinsChanged) [prefs setObject:pinned forKey:@"pinnedDeviceIdentifiers"];
+		}
+	}
+
 	[prefs setObject:devices forKey:@"knownDevices"];
 	[prefs synchronize];
 }
@@ -178,7 +212,104 @@ static void vaonRecordDevice(BCBatteryDevice *device) {
 		if([d[@"identifier"] isEqualToString:ident] && d[@"glyph"]){ haveGlyph = YES; break; }
 	}
 	UIImage *glyph = haveGlyph ? nil : [device batteryWidgetGlyph];
-	vaonUpsertKnownDevice(ident, [device name], [device productIdentifier], glyph, [device percentCharge]);
+	vaonUpsertKnownDevice(ident, [device name], [device productIdentifier], glyph, [device percentCharge], nil, nil);
+}
+
+//BatteryCenter only lists accessories that report a battery level to iOS, so speakers and soundbars
+//that never send one are invisible to it. BluetoothManager enumerates everything that is connected
+static NSArray *vaonConnectedBluetoothAccessories() {
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{
+		if(!NSClassFromString(@"BluetoothManager")){
+			dlopen("/System/Library/PrivateFrameworks/BluetoothManager.framework/BluetoothManager", RTLD_LAZY);
+		}
+	});
+	Class managerClass = NSClassFromString(@"BluetoothManager");
+	if(!managerClass || ![managerClass respondsToSelector:@selector(sharedInstance)]) return @[];
+	BluetoothManager *manager = [managerClass sharedInstance];
+	if(![manager respondsToSelector:@selector(connectedDevices)]) return @[];
+	return [manager connectedDevices] ?: @[];
+}
+
+//the accessory's battery percentage, or -1 when it reports none. the public headers declare
+//batteryLevel as int but the shipping implementation returns a float on some builds, so read the
+//value through the runtime signature rather than trusting a prototype
+static long long vaonBluetoothPercent(BluetoothDevice *device) {
+	SEL sel = @selector(batteryLevel);
+	if(![device respondsToSelector:sel]) return -1;
+	if([device respondsToSelector:@selector(supportsBatteryLevel)] && ![device supportsBatteryLevel]) return -1;
+
+	NSMethodSignature *signature = [device methodSignatureForSelector:sel];
+	if(!signature) return -1;
+	NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+	[invocation setSelector:sel];
+	[invocation invokeWithTarget:device];
+
+	double value = 0;
+	BOOL fractional = FALSE;
+	switch([signature methodReturnType][0]){
+		case 'f': { float v = 0; [invocation getReturnValue:&v]; value = v; fractional = TRUE; break; }
+		case 'd': { double v = 0; [invocation getReturnValue:&v]; value = v; fractional = TRUE; break; }
+		case 'i': { int v = 0; [invocation getReturnValue:&v]; value = v; break; }
+		case 'I': { unsigned int v = 0; [invocation getReturnValue:&v]; value = v; break; }
+		case 'q': { long long v = 0; [invocation getReturnValue:&v]; value = v; break; }
+		case 'Q': { unsigned long long v = 0; [invocation getReturnValue:&v]; value = v; break; }
+		case 's': { short v = 0; [invocation getReturnValue:&v]; value = v; break; }
+		case 'S': { unsigned short v = 0; [invocation getReturnValue:&v]; value = v; break; }
+		case 'c': { signed char v = 0; [invocation getReturnValue:&v]; value = v; break; }
+		case 'C': { unsigned char v = 0; [invocation getReturnValue:&v]; value = v; break; }
+		default: return -1;
+	}
+
+	//a float return is a 0-1 fraction, an integer one is already a percentage
+	if(fractional && value > 0 && value <= 1.0) value *= 100;
+	if(value <= 0) return -1;
+	long long percent = (long long)(value + 0.5);
+	return (percent > 0 && percent <= 100) ? percent : -1;
+}
+
+//temporary diagnostic: the raw batteryLevel return type and value, stored on the device record so it
+//shows in the Pinned Devices list. remove once the reporting shape is confirmed on device
+static NSString *vaonBluetoothDiagnostic(BluetoothDevice *device) {
+	NSMethodSignature *signature = [device methodSignatureForSelector:@selector(batteryLevel)];
+	if(!signature) return @"no batteryLevel";
+	const char *type = [signature methodReturnType];
+	NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+	[invocation setSelector:@selector(batteryLevel)];
+	[invocation invokeWithTarget:device];
+	float asFloat = 0; int asInt = 0; long long asLong = 0;
+	if(type[0] == 'f') [invocation getReturnValue:&asFloat];
+	else if(type[0] == 'i' || type[0] == 'I') [invocation getReturnValue:&asInt];
+	else if(type[0] == 'q' || type[0] == 'Q') [invocation getReturnValue:&asLong];
+	int supports = [device respondsToSelector:@selector(supportsBatteryLevel)] ? [device supportsBatteryLevel] : -1;
+	return [NSString stringWithFormat:@"ret=%s f=%.4f i=%d q=%lld sup=%d -> %lld",
+		type, asFloat, asInt, asLong, supports, vaonBluetoothPercent(device)];
+}
+
+//a device is pinned if the identifier or the name matches a stored pin
+static BOOL vaonIsPinned(NSString *identifier, NSString *name) {
+	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"];
+	if(pinned.count == 0) return FALSE;
+	if([pinned containsObject:identifier]) return TRUE;
+	if(name.length == 0) return FALSE;
+	for(NSDictionary *d in [prefs objectForKey:@"knownDevices"]){
+		if([d[@"name"] isEqualToString:name] && [pinned containsObject:d[@"identifier"]]) return TRUE;
+	}
+	return FALSE;
+}
+
+//record a connected Bluetooth accessory under its address so it can be pinned even with no battery.
+//skipped when BatteryCenter already stores this name, since that record is the better one
+static void vaonRecordBluetoothDevice(BluetoothDevice *device, long long percent) {
+	NSString *address = [device address];
+	if(address.length == 0) return;
+	NSString *name = [device name];
+	if(name.length){
+		for(NSDictionary *d in [prefs objectForKey:@"knownDevices"]){
+			if(![d[@"source"] isEqualToString:@"bluetooth"] && [d[@"name"] isEqualToString:name]) return;
+		}
+	}
+	vaonUpsertKnownDevice(address, name, (long long)[device productId], nil, percent, @"bluetooth", vaonBluetoothDiagnostic(device));
 }
 
 //returns a user-chosen SF Symbol glyph for a device name, or nil to use the default battery glyph
@@ -427,7 +558,21 @@ static void vaonLayoutPages() {
                 glyph = [UIImage imageWithData:glyphData];
             }
         }
+        //Bluetooth-sourced records have no battery widget glyph to store
+        if(!glyph) glyph = [UIImage systemImageNamed:@"antenna.radiowaves.left.and.right"];
         return [self initWithFrame:arg1 device:nil glyphImage:glyph percentage:[record[@"lastPercentage"] longLongValue] name:record[@"name"] identifier:record[@"identifier"] productIdentifier:[record[@"productIdentifier"] longLongValue] disconnected:TRUE];
+    }
+
+	//convenience init for a device that only BluetoothManager knows about. there is no battery widget
+	//glyph for these, so fall back to a generic one the user can swap in the Pinned Devices list
+    -(instancetype)initWithFrame:(CGRect)arg1 bluetoothDevice:(BluetoothDevice *)device percentage:(long long)percentage {
+        NSString *name = [device name];
+        UIImage *glyph = vaonCustomGlyphForName(name);
+        if(!glyph) glyph = [UIImage systemImageNamed:@"antenna.radiowaves.left.and.right"];
+        self = [self initWithFrame:arg1 device:nil glyphImage:glyph percentage:percentage name:name identifier:[device address] productIdentifier:(long long)[device productId] disconnected:FALSE];
+        self.bluetoothDevice = device;
+        [self updateDevicePercentageLabel];
+        return self;
     }
 
 	//designated init: works from either a live device or persisted values
@@ -582,6 +727,9 @@ static void vaonLayoutPages() {
     }
 
     -(long long)getDevicePercentage {
+        if(self.bluetoothDevice) {
+            return vaonBluetoothPercent(self.bluetoothDevice);
+        }
         //persisted (deviceless) cells keep their stored last-known percentage
         if(!self.device) {
             return self.devicePercentage;
@@ -593,9 +741,20 @@ static void vaonLayoutPages() {
 		self.devicePercentage = [self getDevicePercentage];
 	}
 
+	//false for devices iOS has no battery figure for, such as a mains powered speaker
+	-(BOOL)hasBatteryReading {
+		return self.devicePercentage >= 0;
+	}
+
 	//updates a device's percentage and adjusts the label accordingly 
     -(void)updateDevicePercentageLabel {
 		[self updateDevicePercentage];
+		//an en dash keeps the cell the same height as its neighbours without showing a fake number
+		if(![self hasBatteryReading]){
+			self.devicePercentageString = [NSMutableString stringWithString:@"–"];
+			self.devicePercentageLabel.text = self.devicePercentageString;
+			return;
+		}
         self.devicePercentageString = [NSMutableString stringWithFormat:@"%lld",self.devicePercentage];
 		[self addPercentageSymbolToLabel];
         self.devicePercentageLabel.text = self.devicePercentageString;
@@ -606,6 +765,7 @@ static void vaonLayoutPages() {
 	}
 
 	-(CGFloat)devicePercentageAsProgress {
+		if(![self hasBatteryReading]) return 0;
 		double progress = self.devicePercentage;
 		return progress/100;
 	}
@@ -615,11 +775,18 @@ static void vaonLayoutPages() {
 		return [self.device isInternal];
 	}
 
+	//BluetoothManager cells carry no BCBatteryDevice, so their connected state comes from the accessory
+	-(BOOL)isDeviceConnected {
+		if(self.bluetoothDevice) return [self.bluetoothDevice connected];
+		return [self.device isConnected];
+	}
+
 	-(BOOL)isLowPowerModeOn {
 		return [self.device isBatterySaverModeActive];
 	}
 
 	-(BOOL)isBatteryLow {
+		if(self.bluetoothDevice) return [self hasBatteryReading] && self.devicePercentage <= 20;
 		return [self.device isLowBattery];
 	}
 
@@ -650,7 +817,7 @@ static void vaonLayoutPages() {
 				self.circleOutlineLayer.strokeColor = normalBatteryColor.CGColor;
 			}
 		} else {
-			if(![self.device isConnected]){
+			if(![self isDeviceConnected]){
 				if([customDisconnectedDeviceColorMode isEqualToString:@"custom"]) {
 					self.circleOutlineLayer.strokeColor = colorFromHexString(customDisconnectedDeviceColor).CGColor;
 				} else if([customDisconnectedDeviceColorMode isEqualToString:@"system"]) {
@@ -709,8 +876,13 @@ static void vaonLayoutPages() {
 		}
 	}
 
-	//makes percentage label green if charging 
+	//makes percentage label green if charging
 	-(void)updatePercentageColor {
+		//the dash is an absence of data, so it recedes instead of competing with real percentages
+		if(![self hasBatteryReading]){
+			self.devicePercentageLabel.textColor = [UIColor secondaryLabelColor];
+			return;
+		}
 		if([self.device isCharging]){
 			if([customChargingColorMode isEqualToString:@"custom"]) {
 				self.devicePercentageLabel.textColor = colorFromHexString(customChargingColor);
@@ -899,12 +1071,16 @@ void updateBatteryView(){
 		//update list of bluetooth devices
 		connectedBluetoothDevices = [[%c(BCBatteryDeviceController) _sharedPowerSourceController] connectedDevices];
 		NSMutableArray *subviewsToBeAdded = [[NSMutableArray alloc] init];
+		//names BatteryCenter already covers, so the Bluetooth pass below does not double them up
+		NSMutableSet *batteryCenterNames = [NSMutableSet set];
 
 		//loops through and finds new devices to add 
 		for(BCBatteryDevice *device in connectedBluetoothDevices){
 
 			vaonRecordDevice(device);
 			if(device){
+				NSString *bcName = [device name];
+				if(bcName.length) [batteryCenterNames addObject:bcName];
 				BOOL duplicate = FALSE;
 				VaonDeviceBatteryCell *newCell = [[VaonDeviceBatteryCell alloc] initWithFrame:batteryHStackView.bounds device:device];
 				
@@ -929,12 +1105,40 @@ void updateBatteryView(){
 			}
 		}
 
+		//second pass over everything connected over Bluetooth. these are recorded whether or not they
+		//report a battery, so a speaker iOS has no percentage for can still be pinned from the prefs.
+		//batteryless ones are only shown when pinned or when the pref asks for them
+		connectedBluetoothAccessories = vaonConnectedBluetoothAccessories();
+		for(BluetoothDevice *btDevice in connectedBluetoothAccessories){
+			if(![btDevice connected]) continue;
+			NSString *btName = [btDevice name];
+			NSString *btAddress = [btDevice address];
+			if(btAddress.length == 0) continue;
+			if(btName.length && [batteryCenterNames containsObject:btName]) continue;
+
+			long long percent = vaonBluetoothPercent(btDevice);
+			vaonRecordBluetoothDevice(btDevice, percent);
+
+			if(percent < 0 && !showBatterylessDevices && !vaonIsPinned(btAddress, btName)) continue;
+
+			BOOL duplicate = FALSE;
+			for(VaonDeviceBatteryCell *subview in batteryHStackView.subviews){
+				if([subview.deviceIdentifier isEqualToString:btAddress] || (btName.length && [subview.deviceName isEqualToString:btName])){ duplicate = TRUE; break; }
+			}
+			for(VaonDeviceBatteryCell *pending in subviewsToBeAdded){
+				if([pending.deviceIdentifier isEqualToString:btAddress] || (btName.length && [pending.deviceName isEqualToString:btName])){ duplicate = TRUE; break; }
+			}
+			if(duplicate) continue;
+
+			[subviewsToBeAdded addObject:[[VaonDeviceBatteryCell alloc] initWithFrame:batteryHStackView.bounds bluetoothDevice:btDevice percentage:percent]];
+		}
+
 
 
 		//animate and add subviews to the hstack
 		for(VaonDeviceBatteryCell *subview in subviewsToBeAdded){
 
-			if(subview.device){
+			if(subview.device || subview.bluetoothDevice){
 				[batteryHStackView addArrangedSubview:subview];
 				subview.alpha = 0;
 				//fade in new devices
@@ -958,7 +1162,7 @@ void updateBatteryView(){
 		//update device view properties
 		for(VaonDeviceBatteryCell *subview in batteryHStackView.subviews){
 
-			if(!subview.device) {
+			if(!subview.device && !subview.bluetoothDevice) {
 				for(BCBatteryDevice *device in connectedBluetoothDevices) {
 					if([device.name isEqual:subview.deviceName]) {
 						subview.device = device;
@@ -966,8 +1170,19 @@ void updateBatteryView(){
 				}
 			}
 
+			//re-point Bluetooth cells at the current accessory object so a reconnect is picked up
+			if(subview.bluetoothDevice && ![subview.bluetoothDevice connected]) {
+				for(BluetoothDevice *btDevice in connectedBluetoothAccessories) {
+					if([[btDevice address] isEqualToString:subview.deviceIdentifier]) {
+						subview.bluetoothDevice = btDevice;
+						break;
+					}
+				}
+			}
+
 			//checks if the device is not connected anymore
-			if((![connectedBluetoothDevices containsObject:subview.device] && ![subview.device isConnected])){
+			if(subview.bluetoothDevice ? ![subview.bluetoothDevice connected]
+				: (![connectedBluetoothDevices containsObject:subview.device] && ![subview.device isConnected])){
 				//if keep is turned on, keep the device and just update its properties
 				if(keepDisconnectedDevices || subview.pinned){
 					if(subview.device == nil){
@@ -998,7 +1213,7 @@ void updateBatteryView(){
 				[subview updatePercentageColor];
 
 				//if the device is still connected update its battery data
-				if([subview.device isConnected]){
+				if([subview isDeviceConnected]){
 					[subview updateDevicePercentage];
 					[subview updateDevicePercentageLabel];
 				}
@@ -1192,6 +1407,7 @@ static void vaonApplyOrientationLayout(UIView *host){
 		{
 			SBApplication *frontApp = [(SpringBoard*)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
 			NSString *currentAppDisplayID = [frontApp bundleIdentifier];
+			vaonOpenFrontApp = [currentAppDisplayID copy];
 
 
 
@@ -1350,6 +1566,7 @@ void updateSettings(){
 		@"roundOutlineCorners": @TRUE,
 		@"pulsateChargingOutline": @TRUE,
 		@"keepDisconnectedDevices": @TRUE,
+		@"showBatterylessDevices": @FALSE,
 		@"devicesPerPage": @4,
 		@"showPageDots": @TRUE,
 		@"pageDotsOnlyWhileSwiping": @FALSE,
@@ -1406,13 +1623,13 @@ void updateSettings(){
 	roundOutlineCorners = [[prefs objectForKey:@"roundOutlineCorners"] boolValue];
 	pulsateChargingOutline = [[prefs objectForKey:@"pulsateChargingOutline"] boolValue];
 	keepDisconnectedDevices = [[prefs objectForKey:@"keepDisconnectedDevices"] boolValue];
+	showBatterylessDevices = [[prefs objectForKey:@"showBatterylessDevices"] boolValue];
 	devicesPerPage = [[prefs objectForKey:@"devicesPerPage"] integerValue];
 	if(devicesPerPage < 1) devicesPerPage = 1;
 	if(devicesPerPage > 10) devicesPerPage = 10;
 	showPageDots = [[prefs objectForKey:@"showPageDots"] boolValue];
 	pageDotsOnlyWhileSwiping = [[prefs objectForKey:@"pageDotsOnlyWhileSwiping"] boolValue];
 	verticalPageDots = [[prefs objectForKey:@"verticalPageDots"] boolValue];
-			vaonOpenFrontApp = [currentAppDisplayID copy];
 	rememberLastPage = [[prefs objectForKey:@"rememberLastPage"] boolValue];
 	batteryTextColor = [prefs objectForKey:@"batteryTextColor"];
 	customBatteryTextColor = [prefs objectForKey:@"customBatteryTextColor"];
@@ -1460,6 +1677,12 @@ void updateSettings(){
 		if(NSClassFromString(@"SFActivityAction")){
 			%init(VaonSquidGestureCompat);
 		}
+
+		//BluetoothManager reaches bluetoothd asynchronously, so build it well before the first switcher
+		//open or the accessory list comes back empty. deferred so SpringBoard finishes its own setup
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+			vaonConnectedBluetoothAccessories();
+		});
 	}
 /**
 Additional modules:

@@ -103,6 +103,24 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Some accessories, such as speakers and car stereos, never send a battery level to iOS. These show a dash instead of a percentage. They can also be pinned from Pinned Devices without turning this on. Respring to apply.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>key</key>
+			<string>showBatterylessDevices</string>
+			<key>label</key>
+			<string>Display Devices Without Battery Info</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Battery Percentage Text Color Mode</string>
 		</dict>

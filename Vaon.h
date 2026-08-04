@@ -28,10 +28,27 @@
 -(NSArray *)connectedDevices;
 @end
 
+//BluetoothManager sees every connected accessory, not just the ones that report a battery level
+@interface BluetoothDevice : NSObject
+-(NSString *)name;
+-(NSString *)address;
+-(int)batteryLevel;
+-(unsigned)productId;
+-(BOOL)connected;
+-(BOOL)supportsBatteryLevel;
+@end
+
+@interface BluetoothManager : NSObject
++(instancetype)sharedInstance;
+-(NSArray *)connectedDevices;
+@end
+
 @interface VaonDeviceBatteryCell : UIStackView
 -(instancetype)initWithFrame:(CGRect)arg1 device:(BCBatteryDevice *)device;
 -(instancetype)initWithFrame:(CGRect)arg1 persistedRecord:(NSDictionary *)record;
+-(instancetype)initWithFrame:(CGRect)arg1 bluetoothDevice:(BluetoothDevice *)device percentage:(long long)percentage;
 @property (nonatomic, weak) BCBatteryDevice *device;
+@property (nonatomic, strong) BluetoothDevice *bluetoothDevice;
 @property (nonatomic) BOOL pinned;
 @property (nonatomic, strong) NSString *deviceName;
 @property (nonatomic) long long deviceProductIdentifier;
@@ -54,6 +71,8 @@
 -(void)updateDevicePercentageLabel;
 -(void)removeFromSuperview;
 -(CGFloat)devicePercentageAsProgress;
+-(BOOL)isDeviceConnected;
+-(BOOL)hasBatteryReading;
 -(BOOL)isDeviceInternal;
 -(BOOL)isLowPowerModeOn;
 -(BOOL)isBatteryLow;
