@@ -165,6 +165,46 @@ static CGFloat vaonBaselineInLabel(UIFont *font, CGFloat labelHeight) {
 	return (labelHeight - font.lineHeight) / 2 + font.ascender;
 }
 
+//how far to lift the infinity sign so its centre line meets the digits beside it. the fonts come from
+//prefs read once at load, so this only ever needs measuring once
+static CGFloat vaonInfinitySignNudge(UIFont *base, UIFont *large, CGFloat labelHeight) {
+	static CGFloat nudge;
+	static BOOL measured = FALSE;
+	if(!measured){
+		CGFloat digitCentre = vaonBaselineInLabel(base, labelHeight) - vaonInkCenterAboveBaseline(@"0", base);
+		CGFloat signCentre = vaonBaselineInLabel(large, labelHeight) - vaonInkCenterAboveBaseline(@"∞", large);
+		nudge = digitCentre - signCentre;
+		measured = TRUE;
+	}
+	return nudge;
+}
+
+//knownDevices was read back from prefs for every device on every switcher open, and rewritten whole
+//each time a percentage moved. the records carry glyph PNGs, so hold the list for the pass instead:
+//reloaded when the pass starts, so changes made in the prefs app are still picked up, written once
+static NSMutableArray *vaonKnownDevices;
+static BOOL vaonKnownDevicesDirty;
+
+static NSMutableArray *vaonKnownDeviceList() {
+	if(!vaonKnownDevices){
+		NSArray *stored = [prefs objectForKey:@"knownDevices"];
+		vaonKnownDevices = stored ? [stored mutableCopy] : [NSMutableArray array];
+	}
+	return vaonKnownDevices;
+}
+
+static void vaonReloadKnownDevices() {
+	vaonKnownDevices = nil;
+	vaonKnownDevicesDirty = FALSE;
+}
+
+static void vaonFlushKnownDevices() {
+	if(vaonKnownDevicesDirty && vaonKnownDevices){
+		[prefs setObject:vaonKnownDevices forKey:@"knownDevices"];
+	}
+	vaonKnownDevicesDirty = FALSE;
+}
+
 //resolve a colour from a mode/custom pref pair
 static UIColor *vaonColorForMode(NSString *mode, NSString *customColor, UIColor *defaultColor) {
 	if([mode isEqualToString:@"custom"]) return colorFromHexString(customColor);
@@ -177,8 +217,7 @@ static UIColor *vaonColorForMode(NSString *mode, NSString *customColor, UIColor 
 //record replaces the Bluetooth record of the same device, since it carries the real glyph and battery
 static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long long productId, UIImage *glyph, long long percentage, NSString *source) {
 	if(identifier.length == 0) return;
-	NSArray *existing = [prefs objectForKey:@"knownDevices"];
-	NSMutableArray *devices = existing ? [existing mutableCopy] : [NSMutableArray array];
+	NSMutableArray *devices = vaonKnownDeviceList();
 	NSUInteger idx = NSNotFound;
 	for(NSUInteger i = 0; i < devices.count; i++){
 		if([devices[i][@"identifier"] isEqualToString:identifier]){ idx = i; break; }
@@ -228,9 +267,7 @@ static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long lon
 		}
 	}
 
-	//no synchronize here; this runs once per device per switcher open and the store carries the glyph
-	//PNGs, so forcing the whole domain to disk each time is expensive for no gain
-	[prefs setObject:devices forKey:@"knownDevices"];
+	vaonKnownDevicesDirty = TRUE;
 }
 
 //record a live connected device; the internal iPhone battery is only recorded when it is shown, so it
@@ -240,7 +277,7 @@ static void vaonRecordDevice(BCBatteryDevice *device) {
 	if([device isInternal] && hideInternal) return;
 	NSString *ident = [device identifier];
 	BOOL haveGlyph = NO;
-	for(NSDictionary *d in [prefs objectForKey:@"knownDevices"]){
+	for(NSDictionary *d in vaonKnownDeviceList()){
 		if([d[@"identifier"] isEqualToString:ident] && d[@"glyph"]){ haveGlyph = YES; break; }
 	}
 	UIImage *glyph = haveGlyph ? nil : [device batteryWidgetGlyph];
@@ -280,7 +317,7 @@ static void vaonRecordBluetoothDevice(BluetoothDevice *device, long long percent
 	if(address.length == 0) return;
 	NSString *name = [device name];
 	if(name.length){
-		for(NSDictionary *d in [prefs objectForKey:@"knownDevices"]){
+		for(NSDictionary *d in vaonKnownDeviceList()){
 			if(![d[@"source"] isEqualToString:@"bluetooth"] && [d[@"name"] isEqualToString:name]) return;
 		}
 	}
@@ -290,8 +327,7 @@ static void vaonRecordBluetoothDevice(BluetoothDevice *device, long long percent
 //returns a user-chosen SF Symbol glyph for a device name, or nil to use the default battery glyph
 static UIImage *vaonCustomGlyphForName(NSString *name) {
 	if(name.length == 0) return nil;
-	NSArray *known = [prefs objectForKey:@"knownDevices"];
-	for(NSDictionary *d in known){
+	for(NSDictionary *d in vaonKnownDeviceList()){
 		if([d[@"name"] isEqualToString:name]){
 			NSString *sym = d[@"customGlyph"];
 			if([sym isKindOfClass:[NSString class]] && sym.length){
@@ -306,7 +342,7 @@ static UIImage *vaonCustomGlyphForName(NSString *name) {
 static void vaonSeedPinnedDevices() {
 	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"];
 	if(pinned.count == 0) return;
-	NSArray *known = [prefs objectForKey:@"knownDevices"];
+	NSArray *known = vaonKnownDeviceList();
 	if(known.count == 0) return;
 	for(NSString *pid in pinned){
 		if(![pid isKindOfClass:[NSString class]]) continue;
@@ -346,7 +382,7 @@ static NSInteger vaonPinRank(VaonDeviceBatteryCell *cell, NSArray *pinned, NSArr
 static void vaonSortBatteryCells() {
 	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[];
 	if(pinned.count == 0) return;
-	NSArray *known = [prefs objectForKey:@"knownDevices"] ?: @[];
+	NSArray *known = vaonKnownDeviceList();
 	NSArray *sorted = [[batteryHStackView arrangedSubviews] sortedArrayWithOptions:NSSortStable usingComparator:^NSComparisonResult(VaonDeviceBatteryCell *a, VaonDeviceBatteryCell *b){
 		NSInteger ra = vaonPinRank(a, pinned, known);
 		NSInteger rb = vaonPinRank(b, pinned, known);
@@ -732,11 +768,8 @@ static void vaonLayoutPages() {
 		//does not grow, and the glyph is nudged onto the same centre line as the digits beside it
 		if(![self hasBatteryReading]){
 			UIFont *large = [UIFont systemFontOfSize:font.pointSize * 1.5 weight:(enableBoldPercentage ? UIFontWeightBold : UIFontWeightRegular)];
-			CGFloat height = [self percentageLabelHeight];
-			CGFloat digitCenter = vaonBaselineInLabel(font, height) - vaonInkCenterAboveBaseline(@"0", font);
-			CGFloat signCenter = vaonBaselineInLabel(large, height) - vaonInkCenterAboveBaseline(@"∞", large);
 			self.devicePercentageLabel.font = large;
-			self.devicePercentageLabel.transform = CGAffineTransformMakeTranslation(0, digitCenter - signCenter);
+			self.devicePercentageLabel.transform = CGAffineTransformMakeTranslation(0, vaonInfinitySignNudge(font, large, [self percentageLabelHeight]));
 			self.devicePercentageString = [NSMutableString stringWithString:@"∞"];
 			self.devicePercentageLabel.text = self.devicePercentageString;
 			return;
@@ -1071,6 +1104,7 @@ static void vaonRestoreBatteryPage() {
 
 void updateBatteryView(){
 		vaonFlattenPages();
+		vaonReloadKnownDevices();
 
 
 		//update list of bluetooth devices
@@ -1232,6 +1266,8 @@ void updateBatteryView(){
 
 		//restore the page for this open: last-viewed page, or page 0
 		vaonRestoreBatteryPage();
+
+		vaonFlushKnownDevices();
 }
 
 
