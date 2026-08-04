@@ -92,6 +92,9 @@ static void vaonApplyOrientationLayout(UIView *host);
 SBSwitcherAppSuggestionContentView *switcherContentView;
 long long currentSwitcherStyle;
 BOOL stockHidden = TRUE;
+//frontmost app bundle id captured when the switcher opened; used to tell a cancelled leave (same
+//front app, switcher stays) from an app launch or going home (front app changes)
+NSString *vaonOpenFrontApp;
 //set at fade-in completion, cleared at fade-out start; stockHidden is unreliable on iOS 16
 BOOL vaonShown = FALSE;
 
@@ -1263,8 +1266,13 @@ static void vaonApplyOrientationLayout(UIView *host){
 			fadeViewOut(vaonView, 0.3);
 			//if the leave gesture is cancelled and the switcher stays up, vaon would be left hidden.
 			//after the transition settles, re-show it only when the switcher is still on screen
-			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-				if(switcherContentView && switcherContentView.window != nil && !vaonShown && vaonView && !vaonView.hidden){
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+				//a cancelled leave keeps the same frontmost app and the switcher on screen; if a
+				//different app was launched (or we went home), skip so vaon does not flash back in
+				SBApplication *nowFront = [(SpringBoard*)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
+				NSString *nowID = [nowFront bundleIdentifier];
+				BOOL sameFront = (nowID == vaonOpenFrontApp) || [nowID isEqualToString:vaonOpenFrontApp];
+				if(sameFront && switcherContentView && switcherContentView.window != nil && !vaonShown && vaonView && !vaonView.hidden){
 					fadeViewIn(vaonView, 0.25);
 				}
 			});
@@ -1404,6 +1412,7 @@ void updateSettings(){
 	showPageDots = [[prefs objectForKey:@"showPageDots"] boolValue];
 	pageDotsOnlyWhileSwiping = [[prefs objectForKey:@"pageDotsOnlyWhileSwiping"] boolValue];
 	verticalPageDots = [[prefs objectForKey:@"verticalPageDots"] boolValue];
+			vaonOpenFrontApp = [currentAppDisplayID copy];
 	rememberLastPage = [[prefs objectForKey:@"rememberLastPage"] boolValue];
 	batteryTextColor = [prefs objectForKey:@"batteryTextColor"];
 	customBatteryTextColor = [prefs objectForKey:@"customBatteryTextColor"];
