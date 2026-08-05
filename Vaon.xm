@@ -185,10 +185,54 @@ static CGFloat vaonInfinitySignNudge(UIFont *base, UIFont *large, CGFloat labelH
 static NSMutableArray *vaonKnownDevices;
 static BOOL vaonKnownDevicesDirty;
 
+//BatteryCenter hands out a different identifier for the same accessory depending on how its parts were
+//enumerated: AirPods come back as their ear pieces concatenated in whatever order that time, and the
+//internal battery and MagSafe pack get a fresh number every connection. Left alone the store grows one
+//record per variation, each carrying its own glyph PNG. MAC based ids key on their unique parts sorted,
+//which keeps genuinely separate units apart; the rest can only be keyed on the name
+static NSString *vaonDeviceKey(NSString *identifier, NSString *name) {
+	if([identifier containsString:@":"]){
+		NSArray *parts = [[NSSet setWithArray:[identifier componentsSeparatedByString:@"-"]] allObjects];
+		return [[parts sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@"-"];
+	}
+	return [@"name:" stringByAppendingString:(name ?: identifier ?: @"")];
+}
+
+//fold the historical duplicates into one record each. the pinned identifier wins so existing pins keep
+//resolving, and a glyph is carried over from whichever copy has one
+static void vaonCompactKnownDevices(NSMutableArray *devices) {
+	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[];
+	NSMutableDictionary *byKey = [NSMutableDictionary dictionary];
+	NSMutableArray *order = [NSMutableArray array];
+	for(NSDictionary *record in devices){
+		NSString *key = vaonDeviceKey(record[@"identifier"], record[@"name"]);
+		NSMutableDictionary *winner = byKey[key];
+		if(!winner){
+			byKey[key] = [record mutableCopy];
+			[order addObject:key];
+			continue;
+		}
+		if([pinned containsObject:record[@"identifier"]] && ![pinned containsObject:winner[@"identifier"]]){
+			NSMutableDictionary *replacement = [record mutableCopy];
+			if(!replacement[@"glyph"] && winner[@"glyph"]) replacement[@"glyph"] = winner[@"glyph"];
+			if(!replacement[@"customGlyph"] && winner[@"customGlyph"]) replacement[@"customGlyph"] = winner[@"customGlyph"];
+			byKey[key] = replacement;
+		} else {
+			if(!winner[@"glyph"] && record[@"glyph"]) winner[@"glyph"] = record[@"glyph"];
+			if(!winner[@"customGlyph"] && record[@"customGlyph"]) winner[@"customGlyph"] = record[@"customGlyph"];
+		}
+	}
+	if(byKey.count == devices.count) return;
+	[devices removeAllObjects];
+	for(NSString *key in order) [devices addObject:byKey[key]];
+	vaonKnownDevicesDirty = TRUE;
+}
+
 static NSMutableArray *vaonKnownDeviceList() {
 	if(!vaonKnownDevices){
 		NSArray *stored = [prefs objectForKey:@"knownDevices"];
 		vaonKnownDevices = stored ? [stored mutableCopy] : [NSMutableArray array];
+		vaonCompactKnownDevices(vaonKnownDevices);
 	}
 	return vaonKnownDevices;
 }
@@ -218,11 +262,16 @@ static UIColor *vaonColorForMode(NSString *mode, NSString *customColor, UIColor 
 static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long long productId, UIImage *glyph, long long percentage, NSString *source) {
 	if(identifier.length == 0) return;
 	NSMutableArray *devices = vaonKnownDeviceList();
+	//match on the collapsed key, not the raw identifier, so a reconnection that renumbers the accessory
+	//updates its record instead of adding another one
+	NSString *key = vaonDeviceKey(identifier, name);
 	NSUInteger idx = NSNotFound;
 	for(NSUInteger i = 0; i < devices.count; i++){
-		if([devices[i][@"identifier"] isEqualToString:identifier]){ idx = i; break; }
+		if([vaonDeviceKey(devices[i][@"identifier"], devices[i][@"name"]) isEqualToString:key]){ idx = i; break; }
 	}
 	NSDictionary *old = (idx == NSNotFound) ? nil : devices[idx];
+	//keep the stored identifier so any pin pointing at it keeps working
+	if(old) identifier = old[@"identifier"] ?: identifier;
 	BOOL hasGlyph = (old[@"glyph"] != nil);
 	BOOL changed = (old == nil)
 		|| ![(old[@"name"] ?: @"") isEqualToString:(name ?: @"")]
@@ -276,9 +325,10 @@ static void vaonRecordDevice(BCBatteryDevice *device) {
 	if(!device) return;
 	if([device isInternal] && hideInternal) return;
 	NSString *ident = [device identifier];
+	NSString *key = vaonDeviceKey(ident, [device name]);
 	BOOL haveGlyph = NO;
 	for(NSDictionary *d in vaonKnownDeviceList()){
-		if([d[@"identifier"] isEqualToString:ident] && d[@"glyph"]){ haveGlyph = YES; break; }
+		if([vaonDeviceKey(d[@"identifier"], d[@"name"]) isEqualToString:key] && d[@"glyph"]){ haveGlyph = YES; break; }
 	}
 	UIImage *glyph = haveGlyph ? nil : [device batteryWidgetGlyph];
 	vaonUpsertKnownDevice(ident, [device name], [device productIdentifier], glyph, [device percentCharge], nil);
