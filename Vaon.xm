@@ -1198,12 +1198,34 @@ void updateBatteryView(){
 		//update device view properties
 		for(VaonDeviceBatteryCell *subview in batteryHStackView.subviews){
 
+			BOOL adoptedAccessory = FALSE;
 			if(!subview.device && !subview.bluetoothDevice) {
 				for(BCBatteryDevice *device in connectedBluetoothDevices) {
 					if([device.name isEqual:subview.deviceName]) {
 						subview.device = device;
 					}
 				}
+				//a pinned cell seeded from storage starts with no accessory at all, and the second pass
+				//skips it as a duplicate, so without this it stays stuck on the disconnected colour for
+				//as long as the cell lives. match on address first, name second
+				if(!subview.device){
+					for(BluetoothDevice *btDevice in connectedBluetoothAccessories) {
+						if([[btDevice address] isEqualToString:subview.deviceIdentifier]
+							|| (subview.deviceName.length && [[btDevice name] isEqualToString:subview.deviceName])){
+							subview.bluetoothDevice = btDevice;
+							adoptedAccessory = TRUE;
+							break;
+						}
+					}
+				}
+			}
+
+			//the ring animation that starts the pulse already ran for this open, before the accessory was
+			//adopted, so kick it again or the cell sits still until the next time the switcher opens
+			if(adoptedAccessory){
+				[subview updateOutlineColor];
+				[subview updatePercentageColor];
+				[subview newAnimateOuterLayerToCurrentPercentage];
 			}
 
 			//re-point Bluetooth cells at the current accessory object so a reconnect is picked up
