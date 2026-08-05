@@ -36,11 +36,13 @@
 -(unsigned)productId;
 -(BOOL)connected;
 -(BOOL)supportsBatteryLevel;
+-(NSUInteger)connectedServicesCount;
 @end
 
 @interface BluetoothManager : NSObject
 +(instancetype)sharedInstance;
 -(NSArray *)connectedDevices;
+-(NSArray *)pairedDevices;
 @end
 
 @interface VaonDeviceBatteryCell : UIStackView

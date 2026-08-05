@@ -191,6 +191,9 @@ static BOOL vaonKnownDevicesDirty;
 //record per variation, each carrying its own glyph PNG. MAC based ids key on their unique parts sorted,
 //which keeps genuinely separate units apart; the rest can only be keyed on the name
 static NSString *vaonDeviceKey(NSString *identifier, NSString *name) {
+	//the store is a user writable plist, so nothing read out of it can be assumed to be a string
+	if(![identifier isKindOfClass:[NSString class]]) identifier = nil;
+	if(![name isKindOfClass:[NSString class]]) name = nil;
 	if([identifier containsString:@":"]){
 		NSArray *parts = [[NSSet setWithArray:[identifier componentsSeparatedByString:@"-"]] allObjects];
 		return [[parts sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@"-"];
@@ -204,7 +207,10 @@ static void vaonCompactKnownDevices(NSMutableArray *devices) {
 	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[];
 	NSMutableDictionary *byKey = [NSMutableDictionary dictionary];
 	NSMutableArray *order = [NSMutableArray array];
+	NSUInteger examined = 0;
 	for(NSDictionary *record in devices){
+		if(![record isKindOfClass:[NSDictionary class]]) continue;
+		examined++;
 		NSString *key = vaonDeviceKey(record[@"identifier"], record[@"name"]);
 		NSMutableDictionary *winner = byKey[key];
 		if(!winner){
@@ -222,7 +228,7 @@ static void vaonCompactKnownDevices(NSMutableArray *devices) {
 			if(!winner[@"customGlyph"] && record[@"customGlyph"]) winner[@"customGlyph"] = record[@"customGlyph"];
 		}
 	}
-	if(byKey.count == devices.count) return;
+	if(byKey.count == examined && examined == devices.count) return;
 	[devices removeAllObjects];
 	for(NSString *key in order) [devices addObject:byKey[key]];
 	vaonKnownDevicesDirty = TRUE;
@@ -334,8 +340,20 @@ static void vaonRecordDevice(BCBatteryDevice *device) {
 	vaonUpsertKnownDevice(ident, [device name], [device productIdentifier], glyph, [device percentCharge], nil);
 }
 
+//an accessory can be connected without BluetoothManager having set the flag that connectedDevices
+//filters on: the manager only learns of a connection from a notification, so everything already
+//connected when it was built is missing that flag. a live service count corroborates the connection
+static BOOL vaonBluetoothIsConnected(BluetoothDevice *device) {
+	if(!device) return FALSE;
+	if([device connected]) return TRUE;
+	if([device respondsToSelector:@selector(connectedServicesCount)] && [device connectedServicesCount] > 0) return TRUE;
+	return FALSE;
+}
+
 //BatteryCenter only lists accessories that report a battery level to iOS, so speakers and soundbars
-//that never send one are invisible to it. BluetoothManager enumerates everything that is connected
+//that never send one are invisible to it. BluetoothManager enumerates everything. connectedDevices
+//misses whatever was already connected when the manager was built, which is the state after every
+//respring, so pairedDevices is walked as well and filtered down to what is actually connected
 static NSArray *vaonConnectedBluetoothAccessories() {
 	static dispatch_once_t once;
 	dispatch_once(&once, ^{
@@ -347,7 +365,36 @@ static NSArray *vaonConnectedBluetoothAccessories() {
 	if(!managerClass || ![managerClass respondsToSelector:@selector(sharedInstance)]) return @[];
 	BluetoothManager *manager = [managerClass sharedInstance];
 	if(![manager respondsToSelector:@selector(connectedDevices)]) return @[];
-	return [manager connectedDevices] ?: @[];
+
+	NSMutableArray *devices = [NSMutableArray array];
+	NSMutableSet *seen = [NSMutableSet set];
+	for(BluetoothDevice *device in [manager connectedDevices] ?: @[]){
+		NSString *address = [device address];
+		if(address.length == 0 || [seen containsObject:address]) continue;
+		[seen addObject:address];
+		[devices addObject:device];
+	}
+	if([manager respondsToSelector:@selector(pairedDevices)]){
+		for(BluetoothDevice *device in [manager pairedDevices] ?: @[]){
+			NSString *address = [device address];
+			if(address.length == 0 || [seen containsObject:address]) continue;
+			if(!vaonBluetoothIsConnected(device)) continue;
+			[seen addObject:address];
+			[devices addObject:device];
+		}
+	}
+	return devices;
+}
+
+//true while the accessory is in the set gathered this pass. the cells have to agree with whatever the
+//gather decided, or a device shows up and then renders as disconnected
+static BOOL vaonBluetoothStillConnected(BluetoothDevice *device) {
+	if(!device) return FALSE;
+	NSString *address = [device address];
+	for(BluetoothDevice *other in connectedBluetoothAccessories){
+		if(other == device || (address.length && [[other address] isEqualToString:address])) return TRUE;
+	}
+	return vaonBluetoothIsConnected(device);
 }
 
 //the accessory's battery percentage, or -1 when it reports none. accessories with no real level still
@@ -850,7 +897,7 @@ static void vaonLayoutPages() {
 
 	//BluetoothManager cells carry no BCBatteryDevice, so their connected state comes from the accessory
 	-(BOOL)isDeviceConnected {
-		if(self.bluetoothDevice) return [self.bluetoothDevice connected];
+		if(self.bluetoothDevice) return vaonBluetoothStillConnected(self.bluetoothDevice);
 		return [self.device isConnected];
 	}
 
@@ -1198,7 +1245,6 @@ void updateBatteryView(){
 		//a speaker iOS has no percentage for still shows and can still be pinned
 		connectedBluetoothAccessories = vaonConnectedBluetoothAccessories();
 		for(BluetoothDevice *btDevice in connectedBluetoothAccessories){
-			if(![btDevice connected]) continue;
 			NSString *btName = [btDevice name];
 			NSString *btAddress = [btDevice address];
 			if(btAddress.length == 0) continue;
@@ -1279,7 +1325,7 @@ void updateBatteryView(){
 			}
 
 			//re-point Bluetooth cells at the current accessory object so a reconnect is picked up
-			if(subview.bluetoothDevice && ![subview.bluetoothDevice connected]) {
+			if(subview.bluetoothDevice && !vaonBluetoothStillConnected(subview.bluetoothDevice)) {
 				for(BluetoothDevice *btDevice in connectedBluetoothAccessories) {
 					if([[btDevice address] isEqualToString:subview.deviceIdentifier]) {
 						subview.bluetoothDevice = btDevice;
@@ -1289,7 +1335,7 @@ void updateBatteryView(){
 			}
 
 			//checks if the device is not connected anymore
-			if(subview.bluetoothDevice ? ![subview.bluetoothDevice connected]
+			if(subview.bluetoothDevice ? !vaonBluetoothStillConnected(subview.bluetoothDevice)
 				: (!(subview.device && [connectedBluetoothDevices containsObject:subview.device]) && ![subview.device isConnected])){
 				//if keep is turned on, keep the device and just update its properties
 				if(keepDisconnectedDevices || subview.pinned){
