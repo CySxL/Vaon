@@ -9,7 +9,7 @@ Vaon shows connected Bluetooth accessories in the app switcher, with their batte
 ## Compatibility
 Vaon currently targets **iOS 16 only** (rootless and roothide).
 
-Development and testing happen on iOS 16 only, because that is the hardware the maintainer has. Nothing can be verified on earlier versions, so support for iOS 13 to 15 has been removed and the tweak only runs on iOS 16.
+Development and testing happen on iOS 16 only, because that is the hardware I have. Nothing can be verified on earlier versions, so support for iOS 13 to 15 has been removed and the tweak only runs on iOS 16.
 
 The iPad style grid app switcher option has also been removed, to keep the focus on the battery module. If you want a grid app switcher, run a dedicated tweak for it alongside Vaon.
 
@@ -38,7 +38,7 @@ Install Theos, then build a package with:
  For a rootless package, use ```THEOS_PACKAGE_SCHEME=rootless``` instead.
 
 ## Credits
-Originally created by atar13. The iOS 16 port and the changes above are by CySxL. See the Contact section in the app for links.
+Originally created by atar13. The iOS 16 port and the changes above are mine. See the Contact section in the app for links.
 
 ## License
 This project is licensed under the terms of the MIT License.
