@@ -21,17 +21,6 @@
 @interface BatteryColorPreferenceController : PSListController
 @end
 
-@protocol PreferencesTableImageView
--(id)initWithSpecifier:(PSSpecifier *)specifier;
--(CGFloat)preferredHeightForWidth:(CGFloat)width;
-@end 
-
-@interface ImageCell : PSTableCell <PreferencesTableImageView> {
-    UIImageView *imageView;
-    UIImage *image;
-}
-@end
-
 @interface VaonStepperCell : PSTableCell {
     UIStepper *_stepper;
     UILabel *_valueLabel;

@@ -17,7 +17,7 @@
 			<key>key</key>
 			<string>customConnectedDeviceColorMode</string>
 			<key>default</key>
-			<string>grid</string>
+			<string>default</string>
 			<key>defaults</key>
 			<string>com.atar13.vaonprefs</string>
 			<key>validTitles</key>
@@ -48,8 +48,6 @@
 			<string>Custom Connected Device Color</string>
 			<key>showAlphaSlider</key>
 			<true/>
-			<key>PostNotification</key>
-			<string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -63,7 +61,7 @@
 			<key>key</key>
 			<string>customDisconnectedDeviceColorMode</string>
 			<key>default</key>
-			<string>grid</string>
+			<string>default</string>
 			<key>defaults</key>
 			<string>com.atar13.vaonprefs</string>
 			<key>validTitles</key>
@@ -91,11 +89,9 @@
 			<key>default</key>
 			<string>#33b5e5</string>
 			<key>label</key>
-			<string>Custom Diconnected Device Color</string>
+			<string>Custom Disconnected Device Color</string>
 			<key>showAlphaSlider</key>
 			<true/>
-			<key>PostNotification</key>
-			<string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -109,7 +105,7 @@
 			<key>key</key>
 			<string>customLowPowerColorMode</string>
 			<key>default</key>
-			<string>grid</string>
+			<string>default</string>
 			<key>defaults</key>
 			<string>com.atar13.vaonprefs</string>
 			<key>validTitles</key>
@@ -140,8 +136,6 @@
 			<string>Custom Low Power Mode Color</string>
 			<key>showAlphaSlider</key>
 			<true/>
-			<key>PostNotification</key>
-			<string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -155,7 +149,7 @@
 			<key>key</key>
 			<string>customLowBatteryColorMode</string>
 			<key>default</key>
-			<string>grid</string>
+			<string>default</string>
 			<key>defaults</key>
 			<string>com.atar13.vaonprefs</string>
 			<key>validTitles</key>
@@ -186,8 +180,6 @@
 			<string>Custom Low Battery Color</string>
 			<key>showAlphaSlider</key>
 			<true/>
-			<key>PostNotification</key>
-			<string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -203,7 +195,7 @@
 			<key>key</key>
 			<string>customChargingColorMode</string>
 			<key>default</key>
-			<string>grid</string>
+			<string>default</string>
 			<key>defaults</key>
 			<string>com.atar13.vaonprefs</string>
 			<key>validTitles</key>
@@ -234,8 +226,6 @@
 			<string>Custom Charging Color</string>
 			<key>showAlphaSlider</key>
 			<true/>
-			<key>PostNotification</key>
-			<string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -282,8 +272,6 @@
 			<string>Custom Connected Color</string>
 			<key>showAlphaSlider</key>
 			<true/>
-			<key>PostNotification</key>
-			<string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -328,8 +316,6 @@
 			<string>Custom Disconnected Color</string>
 			<key>showAlphaSlider</key>
 			<true/>
-			<key>PostNotification</key>
-			<string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 	</array>
 	<key>title</key>

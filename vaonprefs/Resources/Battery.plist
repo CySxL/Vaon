@@ -19,8 +19,6 @@
 			<string>hideInternal</string>
 			<key>label</key>
 			<string>Hide iPhone Battery</string>
-            <key>PostNotifications</key>
-            <string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -145,8 +143,6 @@
 			<string>Custom Percentage Text Color</string>
 			<key>showAlphaSlider</key>
 			<true/>
-			<key>PostNotification</key>
-			<string>com.atar13.vaonprefs/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>

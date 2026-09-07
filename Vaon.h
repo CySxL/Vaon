@@ -5,11 +5,6 @@
 @interface SBSwitcherAppSuggestionContentView : UIView
 @end
 
-@interface SBAppSwitcherSettings
-@property (assign) long long switcherStyle;
--(long long)switcherStyle;
-@end
-
 @interface BCBatteryDevice : NSObject
 -(id)batteryWidgetGlyph;
 -(long long)percentCharge;
@@ -76,7 +71,6 @@
 -(long long)getDevicePercentage;
 -(void)updateDevicePercentage;
 -(void)updateDevicePercentageLabel;
--(void)removeFromSuperview;
 -(CGFloat)devicePercentageAsProgress;
 -(BOOL)isDeviceConnected;
 -(BOOL)hasBatteryReading;

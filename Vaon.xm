@@ -68,10 +68,8 @@ UIPageControl *batteryPageControl;
 NSInteger currentBatteryPage;
 id vaonScrollDelegate;
 
-UIColor *vaonViewBackgroundColor;
 UIVisualEffectView *vaonBlurView;
 UIBlurEffect *blurEffect;
-UILabel *titleLabel;
 
 int vaonViewCornerRadius = 17;
 
@@ -95,7 +93,6 @@ SBSwitcherAppSuggestionContentView *switcherContentView;
 //frontmost app bundle id captured when the switcher opened; used to tell a cancelled leave (same
 //front app, switcher stays) from an app launch or going home (front app changes)
 NSString *vaonOpenFrontApp;
-long long currentSwitcherStyle;
 BOOL stockHidden = TRUE;
 //set at fade-in completion, cleared at fade-out start; stockHidden is unreliable on iOS 16
 BOOL vaonShown = FALSE;
@@ -110,7 +107,6 @@ UIColor *darkGrayColor = [UIColor colorWithRed:0.1746478873 green:0.2039215686 b
 
 //timers to initiate animations
 NSTimer *delayedFadeInTimer = nil;
-NSTimer *delayedPulsateTimer = nil;
 
 
 BOOL firstSlideIn = false;
@@ -597,7 +593,7 @@ static void vaonLayoutPages() {
 		if(!decelerate) [self vaonFadeDotsOut];
 	}
 	-(void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
-		[prefs setObject:@(currentBatteryPage) forKey:@"lastBatteryPage"];
+		if(rememberLastPage) [prefs setObject:@(currentBatteryPage) forKey:@"lastBatteryPage"];
 		[self vaonFadeDotsOut];
 	}
 @end
@@ -858,6 +854,8 @@ static void vaonLayoutPages() {
 
     -(void)updateDevicePercentageLabel {
 		[self updateDevicePercentage];
+		//the ring still needs the refresh above, but a hidden label is not in the hierarchy
+		if(hidePercentageLabel) return;
 		UIFont *font = [self percentageFont];
 
 		//an infinity sign on its own for devices with no level to report. it carries much less ink than
@@ -878,10 +876,6 @@ static void vaonLayoutPages() {
 		[self addPercentageSymbolToLabel];
         self.devicePercentageLabel.text = self.devicePercentageString;
     }
-
-	-(void)removeFromSuperview {
-		[super removeFromSuperview];
-	}
 
 	-(CGFloat)devicePercentageAsProgress {
 		//a full ring for devices with no level, to match the infinity sign
@@ -1130,7 +1124,6 @@ void initBatteryView(UIView *view){
 
 //initialize the base background blur view
 void initBaseVaonView(UIView* view) {
-	vaonViewBackgroundColor = [UIColor colorNamed:@"clearColor"];
 	if ([backgroundMode isEqualToString:@"system"]) {
 		blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
 	} else if ([backgroundMode isEqualToString:@"dark"]) {
@@ -1138,11 +1131,10 @@ void initBaseVaonView(UIView* view) {
 	} else if ([backgroundMode isEqualToString:@"light"]) {
 		blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterialLight];
 	}
-	titleLabel = [[UILabel alloc] initWithFrame:view.bounds];
 	view.clipsToBounds = TRUE;
 	view.layer.cornerRadius = vaonViewCornerRadius;
 	view.alpha = 0;
-	view.backgroundColor = vaonViewBackgroundColor;
+	view.backgroundColor = [UIColor clearColor];
 
 	vaonBlurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
 	vaonBlurView.frame = view.bounds;
@@ -1154,14 +1146,11 @@ void initBaseVaonView(UIView* view) {
 }
 
 void updateScrollWidthAndTouchPassthrough() {
-	//the result only depends on the stack width and switcher style; skip recompute when both are unchanged
-	//(this is called on every battery event, which fire frequently)
+	//the result only depends on the stack width; skip the recompute when it has not moved
 	static CGFloat lastWidth = -1;
-	static long long lastStyle = -1;
 	CGFloat currentWidth = batteryHStackView.bounds.size.width;
-	if(currentWidth == lastWidth && currentSwitcherStyle == lastStyle) return;
+	if(currentWidth == lastWidth) return;
 	lastWidth = currentWidth;
-	lastStyle = currentSwitcherStyle;
 	if((customWidthEnabled && batteryHStackView.bounds.size.width > customWidth) || batteryHStackView.bounds.size.width > dockWidth){
 		batteryScrollView.scrollEnabled = TRUE;
 			vaonView.userInteractionEnabled = TRUE;
@@ -1282,7 +1271,6 @@ void updateBatteryView(){
 					//when finished animate the outer layer to its percentage position
 					if(finished){
 						[subview newAnimateOuterLayerToCurrentPercentage];
-						[subviewsToBeAdded removeObject:subview];
 						updateScrollWidthAndTouchPassthrough();
 					}
 				}];	
@@ -1684,16 +1672,6 @@ static void vaonApplyOrientationLayout(UIView *host){
 
 
 
-%hook SBAppSwitcherSettings
-
-	//track the current switcher style so the battery view places itself correctly
-	-(void)setSwitcherStyle: (long long)arg1 {
-		%orig;
-		currentSwitcherStyle = self.switcherStyle;
-	}
-%end
-
-
 void updateSettings(){
 	[prefs registerDefaults:@{
 		@"isEnabled": @TRUE,
@@ -1824,10 +1802,6 @@ void updateSettings(){
 
 	//keep UIDevice.orientation populated so landscape detection works in the switcher
 	[[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
-
-	//grid app switcher is the assumed default; the SBAppSwitcherSettings hook keeps this
-	//in sync with the actual style so the battery view places itself correctly
-	currentSwitcherStyle = 2;
 
 	//Vaon targets iOS 16; do nothing on older versions
 	if(isEnabled && kCFCoreFoundationVersionNumber > 1900){

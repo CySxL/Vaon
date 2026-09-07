@@ -8,7 +8,6 @@
 //make a new NSUserDefauls
 NSUserDefaults *prefs;
 NSArray *rootPreferenceKeys;
-NSArray *batteryPreferenceKeys;
 
 //Function to check if an alias exists at a path
 BOOL aliasExistsAtPath(NSString *path) {
@@ -21,7 +20,6 @@ BOOL aliasExistsAtPath(NSString *path) {
     } else if (!isAlias && error.code == NSFileReadNoSuchFileError) {
         return NO;
     } else {
-        NSLog(@"Error: %@", error);
         return NO;
     }
 }
@@ -42,11 +40,6 @@ static void vaonRespring(void) {
 }
 
 @implementation BatteryColorPreferenceController
-
-	// -(id)init {
-	// 	prefs = [[HBPreferences alloc] initWithIdentifier:@"com.atar13.vaonprefs"];
-	// 	return [super init];
-	// }
 
 	-(NSArray *)specifiers {
 		if (!_specifiers) {
@@ -79,38 +72,10 @@ static void vaonRespring(void) {
         UIBarButtonItem *respringButton = [[UIBarButtonItem alloc] initWithTitle:@"Respring" style:UIBarButtonItemStylePlain target:self action:@selector(askBeforeRespring)];
         self.navigationItem.rightBarButtonItem = respringButton; 
     }
-	-(void)prefsChangeAlert {
-			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Respring is required" message:@"To apply this change you must respring your device" preferredStyle:UIAlertControllerStyleAlert];
-			UIAlertAction* respringAction = [UIAlertAction actionWithTitle:@"Respring" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
-				[self respring];
-			}];
-			UIAlertAction* laterAction = [UIAlertAction actionWithTitle:@"Later" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action) {}];
-			[alert addAction:respringAction];
-			[alert addAction:laterAction];
-			[self presentViewController:alert animated:YES completion:nil];
-	}
-
-	// -(void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier{
-	// 	[super setPreferenceValue:value specifier:specifier];
-	// 	if((BOOL)specifier.properties[@"value"]==[prefs boolForKey:specifier.properties[@"key"]]){
-	// 		if([batteryPreferenceKeys containsObject:specifier.properties[@"key"]]){
-	// 			// [self prefsChangeAlert];
-	// 		}
-	// 	}
-	// }
-
-
-    
-
 @end
 
 
 @implementation BatteryPreferenceController
-
-	// -(id)init {
-	// 	prefs = [[HBPreferences alloc] initWithIdentifier:@"com.atar13.vaonprefs"];
-	// 	return [super init];
-	// }
 
 	-(NSArray *)specifiers {
 		if (!_specifiers) {
@@ -143,29 +108,6 @@ static void vaonRespring(void) {
         UIBarButtonItem *respringButton = [[UIBarButtonItem alloc] initWithTitle:@"Respring" style:UIBarButtonItemStylePlain target:self action:@selector(askBeforeRespring)];
         self.navigationItem.rightBarButtonItem = respringButton; 
     }
-	-(void)prefsChangeAlert {
-			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Respring is required" message:@"To apply this change you must respring your device" preferredStyle:UIAlertControllerStyleAlert];
-			UIAlertAction* respringAction = [UIAlertAction actionWithTitle:@"Respring" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
-				[self respring];
-			}];
-			UIAlertAction* laterAction = [UIAlertAction actionWithTitle:@"Later" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action) {}];
-			[alert addAction:respringAction];
-			[alert addAction:laterAction];
-			[self presentViewController:alert animated:YES completion:nil];
-	}
-
-	-(void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier{
-		[super setPreferenceValue:value specifier:specifier];
-		if((BOOL)specifier.properties[@"value"]==[[prefs objectForKey:specifier.properties[@"key"]] boolValue]){
-			if([batteryPreferenceKeys containsObject:specifier.properties[@"key"]]){
-				// [self prefsChangeAlert];
-			}
-		}
-	}
-
-
-    
-
 @end
 
 @implementation VaonRootListController {
@@ -187,17 +129,6 @@ static void vaonRespring(void) {
 			@"customHeightEnabled",
 			@"customWidthEnabled",
 			@"customVerticalOffsetEnabled"
-		];
-		batteryPreferenceKeys = @[
-			@"hideInternal", 
-			@"hidePercent", 
-			@"enableBoldPercentage",
-			@"roundOutlineCorners", 
-			@"pulsateChargingOutline", 
-			@"customBatteryCellSizeEnabled", 
-			@"customPercentageFontSizeEnabled",
-			@"roundOutlineCorners", 
-			@"keepDisconnectedDevices"
 		];
 		return [super init];
 	}
@@ -344,16 +275,10 @@ static void vaonRespring(void) {
 		if([specifier.properties[@"key"] isEqualToString:@"hideInLandscape"]){
 			[self setLandscapeOffsetDependentsVisible:![value boolValue]];
 		}
-		if([rootPreferenceKeys containsObject:specifier.properties[@"key"]]){
-
-			if([specifier.properties[@"cell"] isEqual:@"PSSwitchCell"]){
-				if(!(BOOL)specifier.properties[@"value"]==[[prefs objectForKey:specifier.properties[@"key"]] boolValue]){
-						// [self prefsChangeAlert];
-				}
-			}
-			else {
-				[self prefsChangeAlert];
-			}
+		//switches apply on the next switcher open; everything else needs a respring
+		if([rootPreferenceKeys containsObject:specifier.properties[@"key"]]
+			&& ![specifier.properties[@"cell"] isEqual:@"PSSwitchCell"]){
+			[self prefsChangeAlert];
 		}
 	}
 
@@ -722,37 +647,6 @@ static void vaonRespring(void) {
 @end
 
 
-@implementation ImageCell
-
-	-(id)initWithSpecifier:(PSSpecifier *)specifier {
-		self = [super initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"Cell" specifier:specifier];
-		if(self){
-		CGRect frame = CGRectMake(0, 2, [[UIScreen mainScreen] bounds].size.width, 60);
-
-        NSString *customImagePath = [[NSBundle bundleForClass:[self class]].bundlePath stringByAppendingPathComponent:@"images/email/emailIcon@3x.png"];
-		image = [[UIImage alloc] initWithContentsOfFile:customImagePath];
-		if(image == nil){
-			UILabel *label = [[UILabel alloc] initWithFrame:frame];
-			NSString *labelText = @"Image didn't load";
-			label.text = labelText;
-			[self addSubview:label];
-		} else {
-			imageView = [[UIImageView alloc] initWithImage:image];
-			imageView.contentMode = UIViewContentModeScaleAspectFit;
-			
-			[self addSubview:imageView];
-		}
-		}
-		return self;
-	}
-
-	- (CGFloat)preferredHeightForWidth:(CGFloat)width {
-	// Return a custom cell height.
-		return 100.f;
-	}
-@end
-
-
 @implementation VaonStepperCell
 
 	//integer +/- stepper so the per-page count can never land on a fraction
@@ -796,7 +690,6 @@ static void vaonRespring(void) {
 		NSUserDefaults *d = [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
 		[d setObject:@(v) forKey:self.specifier.properties[@"key"]];
 		[d synchronize];
-		CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("com.atar13.vaonprefs/prefschanged"), NULL, NULL, YES);
 	}
 
 @end
