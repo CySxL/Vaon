@@ -24,6 +24,38 @@ BOOL aliasExistsAtPath(NSString *path) {
     }
 }
 
+//the tweak normalises the same store on its own side; the two binaries share no header, so this is
+//deliberately a second copy rather than a shared file for one function. records without an identifier
+//string are dropped, since nothing here can match or pin them
+static NSArray *vaonNormalizedKnownDevices(id stored) {
+	NSMutableArray *devices = [NSMutableArray array];
+	if(![stored isKindOfClass:[NSArray class]]) return devices;
+	for(id entry in (NSArray *)stored){
+		if(![entry isKindOfClass:[NSDictionary class]]) continue;
+		NSDictionary *raw = entry;
+		NSMutableDictionary *record = [NSMutableDictionary dictionary];
+		for(NSString *field in @[@"identifier", @"name", @"source", @"customGlyph"]){
+			if([raw[field] isKindOfClass:[NSString class]]) record[field] = raw[field];
+		}
+		for(NSString *field in @[@"productIdentifier", @"lastPercentage"]){
+			if([raw[field] isKindOfClass:[NSNumber class]]) record[field] = raw[field];
+		}
+		if([raw[@"glyph"] isKindOfClass:[NSData class]]) record[@"glyph"] = raw[@"glyph"];
+		if(!record[@"identifier"]) continue;
+		[devices addObject:record];
+	}
+	return devices;
+}
+
+static NSArray *vaonNormalizedPins(id stored) {
+	NSMutableArray *pins = [NSMutableArray array];
+	if(![stored isKindOfClass:[NSArray class]]) return pins;
+	for(id pid in (NSArray *)stored){
+		if([pid isKindOfClass:[NSString class]]) [pins addObject:pid];
+	}
+	return pins;
+}
+
 //respring by killing backboardd, resolving killall's path per jailbreak type
 static void vaonRespring(void) {
 	pid_t pid;
@@ -301,7 +333,7 @@ static void vaonRespring(void) {
 
 	-(void)loadModel {
 		NSUserDefaults *d = [self store];
-		NSArray *raw = [d objectForKey:@"knownDevices"] ?: @[];
+		NSArray *raw = vaonNormalizedKnownDevices([d objectForKey:@"knownDevices"]);
 		//one row per name (AirPods report left/right under the same name); map every id to its representative
 		NSMutableArray *collapsed = [NSMutableArray array];
 		NSMutableDictionary *nameToRep = [NSMutableDictionary dictionary];
@@ -309,7 +341,6 @@ static void vaonRespring(void) {
 		for(NSDictionary *dev in raw){
 			NSString *nm = dev[@"name"];
 			NSString *ident = dev[@"identifier"];
-			if(!ident) continue;
 			NSString *rep = nm.length ? nameToRep[nm] : nil;
 			if(rep == nil){
 				rep = ident;
@@ -319,7 +350,7 @@ static void vaonRespring(void) {
 			idToRep[ident] = rep;
 		}
 		_knownDevices = collapsed;
-		NSArray *rawPinned = [d arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[];
+		NSArray *rawPinned = vaonNormalizedPins([d objectForKey:@"pinnedDeviceIdentifiers"]);
 		_pinnedIds = [NSMutableArray array];
 		for(NSString *pid in rawPinned){
 			NSString *rep = idToRep[pid];
@@ -466,16 +497,16 @@ static void vaonRespring(void) {
 		if(!ident) return;
 		NSUserDefaults *d = [self store];
 		//remove every stored record sharing this name (or identifier), plus any pins referencing them
-		NSArray *raw = [d objectForKey:@"knownDevices"] ?: @[];
+		NSArray *raw = vaonNormalizedKnownDevices([d objectForKey:@"knownDevices"]);
 		NSMutableArray *keptDevices = [NSMutableArray array];
 		NSMutableSet *removedIds = [NSMutableSet set];
 		for(NSDictionary *r in raw){
 			BOOL match = [r[@"identifier"] isEqualToString:ident] || (nm.length && [r[@"name"] isEqualToString:nm]);
-			if(match){ if(r[@"identifier"]) [removedIds addObject:r[@"identifier"]]; }
+			if(match){ [removedIds addObject:r[@"identifier"]]; }
 			else { [keptDevices addObject:r]; }
 		}
 		[d setObject:keptDevices forKey:@"knownDevices"];
-		NSArray *rawPinned = [d arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[];
+		NSArray *rawPinned = vaonNormalizedPins([d objectForKey:@"pinnedDeviceIdentifiers"]);
 		NSMutableArray *keptPins = [NSMutableArray array];
 		for(NSString *pid in rawPinned){ if(![removedIds containsObject:pid]) [keptPins addObject:pid]; }
 		[d setObject:keptPins forKey:@"pinnedDeviceIdentifiers"];
@@ -619,11 +650,11 @@ static void vaonRespring(void) {
 	}
 
 	-(NSString *)currentSymbol {
-		NSArray *known = [[self store] objectForKey:@"knownDevices"] ?: @[];
+		NSArray *known = vaonNormalizedKnownDevices([[self store] objectForKey:@"knownDevices"]);
 		for(NSDictionary *d in known){
 			if(self.targetDeviceName.length && [d[@"name"] isEqualToString:self.targetDeviceName]){
 				NSString *s = d[@"customGlyph"];
-				if([s isKindOfClass:[NSString class]]) return s;
+				if(s) return s;
 			}
 		}
 		return @"";
@@ -633,7 +664,7 @@ static void vaonRespring(void) {
 		[tableView deselectRowAtIndexPath:indexPath animated:YES];
 		NSString *sym = _symbols[indexPath.row];
 		NSUserDefaults *d = [self store];
-		NSArray *raw = [d objectForKey:@"knownDevices"] ?: @[];
+		NSArray *raw = vaonNormalizedKnownDevices([d objectForKey:@"knownDevices"]);
 		NSMutableArray *updated = [NSMutableArray array];
 		for(NSDictionary *r in raw){
 			BOOL match = (self.targetDeviceName.length && [r[@"name"] isEqualToString:self.targetDeviceName])

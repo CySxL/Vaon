@@ -190,7 +190,8 @@ static BOOL vaonKnownDevicesDirty;
 //record per variation, each carrying its own glyph PNG. MAC based ids key on their unique parts sorted,
 //which keeps genuinely separate units apart; the rest can only be keyed on the name
 static NSString *vaonDeviceKey(NSString *identifier, NSString *name) {
-	//the store is a user writable plist, so nothing read out of it can be assumed to be a string
+	//also called with names and identifiers straight off BatteryCenter and BluetoothManager, which
+	//the store's normalisation says nothing about
 	if(![identifier isKindOfClass:[NSString class]]) identifier = nil;
 	if(![name isKindOfClass:[NSString class]]) name = nil;
 	if([identifier containsString:@":"]){
@@ -200,16 +201,23 @@ static NSString *vaonDeviceKey(NSString *identifier, NSString *name) {
 	return [@"name:" stringByAppendingString:(name ?: identifier ?: @"")];
 }
 
+//pins come out of the same user writable plist as the records, and they end up as isEqualToString:
+//arguments, so anything that is not a string is dropped here rather than at each use
+static NSArray *vaonPinnedIdentifiers() {
+	NSMutableArray *pins = [NSMutableArray array];
+	for(id pid in [prefs arrayForKey:@"pinnedDeviceIdentifiers"]){
+		if([pid isKindOfClass:[NSString class]]) [pins addObject:pid];
+	}
+	return pins;
+}
+
 //fold the historical duplicates into one record each. the pinned identifier wins so existing pins keep
 //resolving, and a glyph is carried over from whichever copy has one
 static void vaonCompactKnownDevices(NSMutableArray *devices) {
-	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[];
+	NSArray *pinned = vaonPinnedIdentifiers();
 	NSMutableDictionary *byKey = [NSMutableDictionary dictionary];
 	NSMutableArray *order = [NSMutableArray array];
-	NSUInteger examined = 0;
 	for(NSDictionary *record in devices){
-		if(![record isKindOfClass:[NSDictionary class]]) continue;
-		examined++;
 		NSString *key = vaonDeviceKey(record[@"identifier"], record[@"name"]);
 		NSMutableDictionary *winner = byKey[key];
 		if(!winner){
@@ -227,16 +235,44 @@ static void vaonCompactKnownDevices(NSMutableArray *devices) {
 			if(!winner[@"customGlyph"] && record[@"customGlyph"]) winner[@"customGlyph"] = record[@"customGlyph"];
 		}
 	}
-	if(byKey.count == examined && examined == devices.count) return;
+	if(byKey.count == devices.count) return;
 	[devices removeAllObjects];
 	for(NSString *key in order) [devices addObject:byKey[key]];
 	vaonKnownDevicesDirty = TRUE;
 }
 
+//nothing in the store is guaranteed to have the type it was written with, so the whole list is
+//normalised on load and every reader below can take the fields at face value. a record without an
+//identifier string is dropped: it can neither be matched nor pinned, and the upsert refuses to write one
+static NSMutableArray *vaonNormalizeKnownDevices(id stored, BOOL *changed) {
+	NSMutableArray *devices = [NSMutableArray array];
+	if(![stored isKindOfClass:[NSArray class]]){
+		if(stored) *changed = TRUE;
+		return devices;
+	}
+	for(id entry in (NSArray *)stored){
+		if(![entry isKindOfClass:[NSDictionary class]]){ *changed = TRUE; continue; }
+		NSDictionary *raw = entry;
+		NSMutableDictionary *record = [NSMutableDictionary dictionary];
+		for(NSString *field in @[@"identifier", @"name", @"source", @"customGlyph"]){
+			if([raw[field] isKindOfClass:[NSString class]]) record[field] = raw[field];
+		}
+		for(NSString *field in @[@"productIdentifier", @"lastPercentage"]){
+			if([raw[field] isKindOfClass:[NSNumber class]]) record[field] = raw[field];
+		}
+		if([raw[@"glyph"] isKindOfClass:[NSData class]]) record[@"glyph"] = raw[@"glyph"];
+		if(record.count != raw.count) *changed = TRUE;
+		if(!record[@"identifier"]) continue;
+		[devices addObject:record];
+	}
+	return devices;
+}
+
 static NSMutableArray *vaonKnownDeviceList() {
 	if(!vaonKnownDevices){
-		NSArray *stored = [prefs objectForKey:@"knownDevices"];
-		vaonKnownDevices = stored ? [stored mutableCopy] : [NSMutableArray array];
+		BOOL changed = FALSE;
+		vaonKnownDevices = vaonNormalizeKnownDevices([prefs objectForKey:@"knownDevices"], &changed);
+		if(changed) vaonKnownDevicesDirty = TRUE;
 		vaonCompactKnownDevices(vaonKnownDevices);
 	}
 	return vaonKnownDevices;
@@ -306,7 +342,7 @@ static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long lon
 			}
 		}
 		if(stale.count){
-			NSMutableArray *pinned = [([prefs arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[]) mutableCopy];
+			NSMutableArray *pinned = [vaonPinnedIdentifiers() mutableCopy];
 			BOOL pinsChanged = FALSE;
 			for(NSDictionary *d in stale){
 				NSUInteger p = [pinned indexOfObject:d[@"identifier"]];
@@ -426,9 +462,7 @@ static UIImage *vaonCustomGlyphForName(NSString *name) {
 	for(NSDictionary *d in vaonKnownDeviceList()){
 		if([d[@"name"] isEqualToString:name]){
 			NSString *sym = d[@"customGlyph"];
-			if([sym isKindOfClass:[NSString class]] && sym.length){
-				return [UIImage systemImageNamed:sym];
-			}
+			if(sym.length) return [UIImage systemImageNamed:sym];
 		}
 	}
 	return nil;
@@ -436,12 +470,11 @@ static UIImage *vaonCustomGlyphForName(NSString *name) {
 
 //add cells for pinned devices that aren't currently connected, from persisted data
 static void vaonSeedPinnedDevices() {
-	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"];
+	NSArray *pinned = vaonPinnedIdentifiers();
 	if(pinned.count == 0) return;
 	NSArray *known = vaonKnownDeviceList();
 	if(known.count == 0) return;
 	for(NSString *pid in pinned){
-		if(![pid isKindOfClass:[NSString class]]) continue;
 		NSDictionary *record = nil;
 		for(NSDictionary *d in known){ if([d[@"identifier"] isEqualToString:pid]){ record = d; break; } }
 		if(!record) continue;
@@ -476,7 +509,7 @@ static NSInteger vaonPinRank(VaonDeviceBatteryCell *cell, NSArray *pinned, NSArr
 
 //order the shown cells: pinned devices first (in pinned order), everything else after
 static void vaonSortBatteryCells() {
-	NSArray *pinned = [prefs arrayForKey:@"pinnedDeviceIdentifiers"] ?: @[];
+	NSArray *pinned = vaonPinnedIdentifiers();
 	if(pinned.count == 0) return;
 	NSArray *known = vaonKnownDeviceList();
 	NSArray *sorted = [[batteryHStackView arrangedSubviews] sortedArrayWithOptions:NSSortStable usingComparator:^NSComparisonResult(VaonDeviceBatteryCell *a, VaonDeviceBatteryCell *b){
@@ -658,15 +691,8 @@ static void vaonLayoutPages() {
     -(instancetype)initWithFrame:(CGRect)arg1 persistedRecord:(NSDictionary *)record {
         UIImage *glyph = nil;
         NSString *sym = record[@"customGlyph"];
-        if([sym isKindOfClass:[NSString class]] && sym.length){
-            glyph = [UIImage systemImageNamed:sym];
-        }
-        if(!glyph){
-            NSData *glyphData = record[@"glyph"];
-            if([glyphData isKindOfClass:[NSData class]]) {
-                glyph = [UIImage imageWithData:glyphData];
-            }
-        }
+        if(sym.length) glyph = [UIImage systemImageNamed:sym];
+        if(!glyph && record[@"glyph"]) glyph = [UIImage imageWithData:record[@"glyph"]];
         //Bluetooth-sourced records have no battery widget glyph to store
         if(!glyph) glyph = [UIImage systemImageNamed:@"antenna.radiowaves.left.and.right"];
         return [self initWithFrame:arg1 device:nil glyphImage:glyph percentage:[record[@"lastPercentage"] longLongValue] name:record[@"name"] identifier:record[@"identifier"] productIdentifier:[record[@"productIdentifier"] longLongValue] disconnected:TRUE];
