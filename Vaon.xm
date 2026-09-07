@@ -631,7 +631,7 @@ static void vaonLayoutPages() {
 	
 	//when the animation finishes change the color and start another pulsate animation
     -(void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag {
-		if(flag && self.cell){
+		if(flag && self.cell && self.cell.pulsateActive){
 			if([self.cell shouldPulsateOutline]){
 				[self.cell.circleOutlineLayer addAnimation:self.nextAnimation forKey:kCATransition];
 			}else{
@@ -971,7 +971,11 @@ static void vaonLayoutPages() {
 
 	//starts the pulsating color animation sequence
 	-(void)pulsateOutline {
+		//the ring animation that calls this lands a quarter second late, so it can arrive after the
+		//switcher has gone; without this the chain would restart with nothing on screen
+		if(!vaonShown) return;
 		if([self shouldPulsateOutline]){
+			self.pulsateActive = TRUE;
 			CAMediaTimingFunction *animationColorTimingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionDefault];
 
 			//initializes animations. the cell holds both, so the delegates can reference the other one
@@ -1011,6 +1015,16 @@ static void vaonLayoutPages() {
 			
 			[self.circleOutlineLayer addAnimation:normalToBright forKey:kCATransition];
 		}
+	}
+
+	//ends the chain. the halves hold their last frame, so the resting colour has to be put back
+	-(void)stopPulsatingOutline {
+		if(!self.pulsateActive) return;
+		self.pulsateActive = FALSE;
+		[self.circleOutlineLayer removeAnimationForKey:kCATransition];
+		self.pulsateToBright = nil;
+		self.pulsateToNormal = nil;
+		[self updateOutlineColor];
 	}
 
 	//makes percentage label green if charging
@@ -1443,6 +1457,7 @@ void fadeViewOut(UIView *view, CGFloat duration){
 	vaonShown = FALSE;
 	//animate all the outlines back to their original position
 	for(VaonDeviceBatteryCell *subview in vaonAllBatteryCells()){
+		[subview stopPulsatingOutline];
 		[subview newAnimateOuterLayerToZero];
 	}
 	//landscape offset mode keeps the view at its constraint position and just fades, so the slide

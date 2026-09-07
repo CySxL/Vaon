@@ -63,6 +63,7 @@
 //the cell owns both halves of the pulse so the two animations do not have to retain each other
 @property (nonatomic, strong) CABasicAnimation *pulsateToBright;
 @property (nonatomic, strong) CABasicAnimation *pulsateToNormal;
+@property (nonatomic, assign) BOOL pulsateActive;
 -(CGFloat)getCellWidth;
 -(void)setCellWidth:(CGFloat)arg1;
 -(void)addPercentageSymbolToLabel;
@@ -81,6 +82,7 @@
 -(BOOL)isBatteryLow;
 -(void)updateOutlineColor;
 -(void)pulsateOutline;
+-(void)stopPulsatingOutline;
 -(void)updatePercentageColor;
 -(void)newAnimateOuterLayerToCurrentPercentage;
 -(void)newAnimateOuterLayerToZero;
