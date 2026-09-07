@@ -133,12 +133,15 @@ NSString *customNoBatteryDisconnectedColorMode;
 NSString *customNoBatteryDisconnectedColor;
 
 UIColor* colorFromHexString(NSString *hexString) {
-    if(hexString.length == 0) return [UIColor clearColor];
-    unsigned rgbValue = 0;
-    NSScanner *scanner = [NSScanner scannerWithString:hexString];
-    if([hexString hasPrefix:@"#"]) [scanner setScanLocation:1];
-    [scanner scanHexInt:&rgbValue];
-    return [UIColor colorWithRed:((rgbValue & 0xFF0000) >> 16)/255.0 green:((rgbValue & 0xFF00) >> 8)/255.0 blue:(rgbValue & 0xFF)/255.0 alpha:1.0];
+    if(![hexString isKindOfClass:[NSString class]] || hexString.length == 0) return [UIColor clearColor];
+    NSString *digits = [hexString hasPrefix:@"#"] ? [hexString substringFromIndex:1] : hexString;
+    unsigned long long value = 0;
+    if(![[NSScanner scannerWithString:digits] scanHexLongLong:&value]) return [UIColor clearColor];
+    //the pickers offer an alpha slider, and Alderis writes AARRGGBB once alpha leaves full. the
+    //low 24 bits are RRGGBB either way, so the shifts below are the same for 6 and 8 digits
+    CGFloat alpha = 1.0;
+    if(digits.length >= 8) alpha = ((value >> 24) & 0xFF)/255.0;
+    return [UIColor colorWithRed:((value & 0xFF0000) >> 16)/255.0 green:((value & 0xFF00) >> 8)/255.0 blue:(value & 0xFF)/255.0 alpha:alpha];
 }
 
 //how far the drawn ink of a string sits above its baseline, at its midpoint. lets glyphs of different
