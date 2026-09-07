@@ -1424,8 +1424,8 @@ void fadeViewIn(UIView *view, CGFloat duration){
 						if(firstSlideIn) {
 							[subview newAnimateOuterLayerToCurrentPercentage];
 						}
-						stockHidden = FALSE;
 					}
+					stockHidden = FALSE;
 					updateBatteryView();
 					vaonShown = TRUE;
 				}
@@ -1499,8 +1499,9 @@ static void vaonApplyOrientationLayout(UIView *host){
 	//creates vaonview for normal/non-grid app switcher
 	-(void)didMoveToWindow {
 		%orig;
+		if([selectedModule isEqual:@"none"]) return;
 		switcherContentView = self;
-		if(![selectedModule isEqual:@"none"]){
+		{
 			CGFloat mainScreen = [[UIScreen mainScreen] bounds].size.height;
 			//iOS 16: the old main switcher VC is gone, so dockWidth is never set there
 			if(dockWidth == 0){
@@ -1573,14 +1574,16 @@ static void vaonApplyOrientationLayout(UIView *host){
 				// opening the app switcher from the home screen
 				if(currentAppDisplayID==nil && stockHidden){
 					if(enableDelay) {
-							delayedFadeInTimer = [NSTimer scheduledTimerWithTimeInterval:fadeInDelay target:self selector:@selector(delayedFadeViewIn) userInfo:nil repeats:NO];
+							[delayedFadeInTimer invalidate];
+							delayedFadeInTimer = [NSTimer scheduledTimerWithTimeInterval:fadeInDelay target:self selector:@selector(delayedFadeViewIn:) userInfo:nil repeats:NO];
 					} else {
 						fadeViewIn(vaonView, 0.4);
 					}
 				} else {
 					if(stockHidden){
 						if(enableDelay) {
-							delayedFadeInTimer = [NSTimer scheduledTimerWithTimeInterval:fadeInDelay target:self selector:@selector(delayedFadeViewIn) userInfo:nil repeats:NO];
+							[delayedFadeInTimer invalidate];
+							delayedFadeInTimer = [NSTimer scheduledTimerWithTimeInterval:fadeInDelay target:self selector:@selector(delayedFadeViewIn:) userInfo:nil repeats:NO];
 						} else {
 							fadeViewIn(vaonView, 0.4);
 						}
@@ -1592,10 +1595,10 @@ static void vaonApplyOrientationLayout(UIView *host){
 	}
 
 	%new
-	-(void)delayedFadeViewIn {
+	-(void)delayedFadeViewIn:(NSTimer *)timer {
+		[timer invalidate];
+		if(timer == delayedFadeInTimer) delayedFadeInTimer = nil;
 		fadeViewIn(vaonView, 0.4);
-		[delayedFadeInTimer invalidate];
-		delayedFadeInTimer = nil;
 	}
 
 	//only claim touches that land on the battery strip while it can page; let everything else fall
@@ -1800,15 +1803,21 @@ void updateSettings(){
 	prefs = [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
 	updateSettings();
 
-	//keep UIDevice.orientation populated so landscape detection works in the switcher
-	[[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
+	//Vaon targets iOS 16. The version floor alone still admits later firmwares, and a hook on
+	//a class that is not there installs silently and does nothing
+	if(isEnabled && kCFCoreFoundationVersionNumber > 1900 && NSClassFromString(@"SBSwitcherAppSuggestionContentView")){
+		//keep UIDevice.orientation populated so landscape detection works in the switcher
+		if(![selectedModule isEqual:@"none"]){
+			[[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
+		}
 
-	//Vaon targets iOS 16; do nothing on older versions
-	if(isEnabled && kCFCoreFoundationVersionNumber > 1900){
 		%init;
-		%init(iOS16SwitcherCoordinator);
-		%init(iOS16FloatingDock);
-
+		if(NSClassFromString(@"SBMainSwitcherControllerCoordinator")){
+			%init(iOS16SwitcherCoordinator);
+		}
+		if(NSClassFromString(@"SBHIconManager")){
+			%init(iOS16FloatingDock);
+		}
 		//only hook SquidGesture Pro's action class if it is actually installed
 		if(NSClassFromString(@"SFActivityAction")){
 			%init(VaonSquidGestureCompat);
