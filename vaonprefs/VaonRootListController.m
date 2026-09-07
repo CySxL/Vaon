@@ -291,10 +291,12 @@ static void vaonRespring(void) {
 	NSMutableArray *_knownDevices;
 	NSMutableArray *_pinnedIds;
 	UITableView *_tableView;
+	NSUserDefaults *_store;
 }
 
 	-(NSUserDefaults *)store {
-		return [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
+		if(!_store) _store = [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
+		return _store;
 	}
 
 	-(void)loadModel {
@@ -525,10 +527,13 @@ static void vaonRespring(void) {
 @implementation VaonGlyphPickerController {
 	NSArray *_symbols;
 	UITableView *_tableView;
+	NSUserDefaults *_store;
+	NSString *_currentSymbol;
 }
 
 	-(NSUserDefaults *)store {
-		return [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
+		if(!_store) _store = [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
+		return _store;
 	}
 
 	-(void)viewDidLoad {
@@ -570,6 +575,8 @@ static void vaonRespring(void) {
 			@"dot.radiowaves.forward", @"wave.3.right", @"airtag.radiowaves.forward.fill",
 			@"sensor.tag.radiowaves.forward.fill", @"printer.fill"
 		];
+		//resolved once here and kept in step in didSelectRow, rather than read back per row
+		_currentSymbol = [self currentSymbol];
 		_tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
 		_tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 		_tableView.dataSource = self;
@@ -605,7 +612,7 @@ static void vaonRespring(void) {
 			cell.imageView.image = [[UIImage systemImageNamed:sym] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
 			cell.imageView.tintColor = [UIColor labelColor];
 		}
-		NSString *current = [self currentSymbol];
+		NSString *current = _currentSymbol;
 		BOOL selected = (sym.length == 0) ? (current.length == 0) : [current isEqualToString:sym];
 		cell.accessoryType = selected ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
 		return cell;
@@ -641,6 +648,7 @@ static void vaonRespring(void) {
 		}
 		[d setObject:updated forKey:@"knownDevices"];
 		[d synchronize];
+		_currentSymbol = sym;
 		[_tableView reloadData];
 	}
 
