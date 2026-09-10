@@ -37,7 +37,7 @@ static NSArray *vaonNormalizedKnownDevices(id stored) {
 		for(NSString *field in @[@"identifier", @"name", @"source", @"customGlyph"]){
 			if([raw[field] isKindOfClass:[NSString class]]) record[field] = raw[field];
 		}
-		for(NSString *field in @[@"productIdentifier", @"lastPercentage"]){
+		for(NSString *field in @[@"productIdentifier", @"lastPercentage", @"lastSeen"]){
 			if([raw[field] isKindOfClass:[NSNumber class]]) record[field] = raw[field];
 		}
 		if([raw[@"glyph"] isKindOfClass:[NSData class]]) record[@"glyph"] = raw[@"glyph"];

@@ -178,6 +178,12 @@ static CGFloat vaonInfinitySignNudge(UIFont *base, UIFont *large, CGFloat labelH
 	return nudge;
 }
 
+//whole days since the epoch. the store only needs to know how long ago a device was last seen, and a
+//day granularity keeps an unchanged device to one write a day instead of one a pass
+static long long vaonToday(void) {
+	return (long long)([[NSDate date] timeIntervalSince1970] / 86400.0);
+}
+
 //knownDevices was read back from prefs for every device on every switcher open, and rewritten whole
 //each time a percentage moved. the records carry glyph PNGs, so hold the list for the pass instead:
 //reloaded when the pass starts, so changes made in the prefs app are still picked up, written once
@@ -257,15 +263,52 @@ static NSMutableArray *vaonNormalizeKnownDevices(id stored, BOOL *changed) {
 		for(NSString *field in @[@"identifier", @"name", @"source", @"customGlyph"]){
 			if([raw[field] isKindOfClass:[NSString class]]) record[field] = raw[field];
 		}
-		for(NSString *field in @[@"productIdentifier", @"lastPercentage"]){
+		for(NSString *field in @[@"productIdentifier", @"lastPercentage", @"lastSeen"]){
 			if([raw[field] isKindOfClass:[NSNumber class]]) record[field] = raw[field];
 		}
 		if([raw[@"glyph"] isKindOfClass:[NSData class]]) record[@"glyph"] = raw[@"glyph"];
 		if(record.count != raw.count) *changed = TRUE;
 		if(!record[@"identifier"]) continue;
+		//a record stored before 1.9.10 has no date. stamp it as seen now rather than expiring it, so the
+		//window starts here for everything already in the store and nothing is dropped on this pass
+		if(!record[@"lastSeen"]){
+			record[@"lastSeen"] = @(vaonToday());
+			*changed = TRUE;
+		}
 		[devices addObject:record];
 	}
 	return devices;
+}
+
+//an accessory that stopped connecting keeps its record, and with it a MAC based identifier and the
+//name it was sold under, for as long as the store lives. drop one that has not been seen for this long.
+//pinned records are never candidates, and neither is anything connected: the pass stamps every device
+//it gathers before this runs
+#define VAON_KNOWN_DEVICE_EXPIRY_DAYS 90
+
+static void vaonExpireKnownDevices(NSMutableArray *devices) {
+	long long cutoff = vaonToday() - VAON_KNOWN_DEVICE_EXPIRY_DAYS;
+	NSArray *pinned = vaonPinnedIdentifiers();
+	//a pin can point at an identifier the accessory has since renumbered, so protect by the same rule
+	//vaonPinRank resolves with: the identifier itself, then the name of whatever record carries it
+	NSMutableSet *pinnedNames = [NSMutableSet set];
+	NSMutableSet *pinnedKeys = [NSMutableSet set];
+	for(NSDictionary *record in devices){
+		if(![pinned containsObject:record[@"identifier"]]) continue;
+		if(record[@"name"]) [pinnedNames addObject:record[@"name"]];
+		[pinnedKeys addObject:vaonDeviceKey(record[@"identifier"], record[@"name"])];
+	}
+	NSMutableArray *expired = [NSMutableArray array];
+	for(NSDictionary *record in devices){
+		if([record[@"lastSeen"] longLongValue] > cutoff) continue;
+		if([pinned containsObject:record[@"identifier"]]) continue;
+		if(record[@"name"] && [pinnedNames containsObject:record[@"name"]]) continue;
+		if([pinnedKeys containsObject:vaonDeviceKey(record[@"identifier"], record[@"name"])]) continue;
+		[expired addObject:record];
+	}
+	if(!expired.count) return;
+	[devices removeObjectsInArray:expired];
+	vaonKnownDevicesDirty = TRUE;
 }
 
 static NSMutableArray *vaonKnownDeviceList() {
@@ -314,7 +357,9 @@ static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long lon
 	//keep the stored identifier so any pin pointing at it keeps working
 	if(old) identifier = old[@"identifier"] ?: identifier;
 	BOOL hasGlyph = (old[@"glyph"] != nil);
+	long long today = vaonToday();
 	BOOL changed = (old == nil)
+		|| [old[@"lastSeen"] longLongValue] != today
 		|| ![(old[@"name"] ?: @"") isEqualToString:(name ?: @"")]
 		|| [old[@"productIdentifier"] longLongValue] != productId
 		|| [old[@"lastPercentage"] longLongValue] != percentage
@@ -326,6 +371,7 @@ static void vaonUpsertKnownDevice(NSString *identifier, NSString *name, long lon
 	if(name) record[@"name"] = name;
 	record[@"productIdentifier"] = @(productId);
 	record[@"lastPercentage"] = @(percentage);
+	record[@"lastSeen"] = @(today);
 	if(source) record[@"source"] = source; else [record removeObjectForKey:@"source"];
 	if(glyph && !hasGlyph){
 		NSData *png = UIImagePNGRepresentation(glyph);
@@ -1416,6 +1462,7 @@ void updateBatteryView(){
 		//restore the page for this open: last-viewed page, or page 0
 		vaonRestoreBatteryPage();
 
+		if(vaonKnownDevices) vaonExpireKnownDevices(vaonKnownDevices);
 		vaonFlushKnownDevices();
 }
 
