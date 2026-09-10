@@ -80,6 +80,9 @@ BOOL vaonViewIsInitialized = FALSE;
 //measurement: it is what fits beside a dock on a phone, and it is the same on every model
 #define VAON_LANDSCAPE_CELLS_PER_PAGE 3
 
+//how far below the bottom edge the view is parked while hidden. it only has to clear the edge, so the
+//figure holds on any model. the entry and the exit must use the same one or the fly in starts partway
+#define VAON_OFFSCREEN_DROP 200
 
 BOOL hideInLandscape;
 BOOL landscapeOffsetEnabled;
@@ -1547,6 +1550,15 @@ void fadeViewIn(UIView *view, CGFloat duration){
 			view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height - 25 - view.frame.size.height, view.frame.size.width, view.frame.size.height);
 		}
 	}
+	//the entry used to inherit its starting point from the last fadeViewOut. vaonView is under
+	//autolayout and a frame written on it only survives to the next layout pass, so any pass between
+	//the close and this open put it back at rest and the fly in had nowhere to travel. place it here
+	//instead, in the same breath as the animation so no layout pass can come between the two.
+	//alpha is the test for "not already on screen or on its way in": the model value is 1 from the
+	//moment a fade in starts, so the 0.5s recheck landing mid-fade cannot snap it back down
+	if(!landscapeActive && firstSlideIn && enableFlyInOut && view.alpha == 0){
+		view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + VAON_OFFSCREEN_DROP, view.frame.size.width, view.frame.size.height);
+	}
 	if(landscapeActive){
 		[view.superview layoutIfNeeded];
 	}
@@ -1595,12 +1607,12 @@ void fadeViewOut(UIView *view, CGFloat duration){
 	CGRect mainScreen = [[UIScreen mainScreen] bounds];
 
 	if(!landscapeActive && !enableFlyInOut) {
-		view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + 200, view.frame.size.width, view.frame.size.height);
+		view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + VAON_OFFSCREEN_DROP, view.frame.size.width, view.frame.size.height);
 	}
 
 	[UIView animateWithDuration:duration animations:^ {
 		if(!landscapeActive && enableFlyInOut) {
-			view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + 200, view.frame.size.width, view.frame.size.height);
+			view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + VAON_OFFSCREEN_DROP, view.frame.size.width, view.frame.size.height);
 		}
 
 		view.alpha = 0;
