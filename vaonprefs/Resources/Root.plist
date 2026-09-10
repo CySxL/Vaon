@@ -410,7 +410,7 @@
 			<key>id</key>
 			<string>landscapeHOffsetHeader</string>
 			<key>label</key>
-			<string>Horizontal Offset — X (left / right)</string>
+			<string>Horizontal Offset - X (left / right)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -436,7 +436,7 @@
 			<key>id</key>
 			<string>landscapeVOffsetHeader</string>
 			<key>label</key>
-			<string>Vertical Offset — Y (up / down)</string>
+			<string>Vertical Offset - Y (up / down)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
