@@ -176,7 +176,7 @@ static void vaonRespring(void) {
 				if([sid isEqualToString:@"verticalPageDots"] || [sid isEqualToString:@"pageDotsOnlyWhileSwiping"]){
 					[deps addObject:s];
 				}
-				if([sid isEqualToString:@"landscapeOffsetEnabled"] || [sid isEqualToString:@"landscapeHOffsetHeader"] || [sid isEqualToString:@"landscapeHorizontalOffset"] || [sid isEqualToString:@"landscapeVOffsetHeader"] || [sid isEqualToString:@"landscapeVerticalOffset"]){
+				if([sid isEqualToString:@"landscapeModuleEnabled"] || [sid isEqualToString:@"landscapeModuleSideHeader"] || [sid isEqualToString:@"landscapeModuleSide"] || [sid isEqualToString:@"landscapeOffsetEnabled"] || [sid isEqualToString:@"landscapeHOffsetHeader"] || [sid isEqualToString:@"landscapeHorizontalOffset"] || [sid isEqualToString:@"landscapeVOffsetHeader"] || [sid isEqualToString:@"landscapeVerticalOffset"]){
 					[landDeps addObject:s];
 				}
 			}

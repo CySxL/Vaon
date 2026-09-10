@@ -76,13 +76,20 @@ int vaonViewCornerRadius = 17;
 CGFloat dockWidth;
 BOOL vaonViewIsInitialized = FALSE;
 
-//landscape handling
+//landscape handling. three to a page is the count the floating dock layout was asked for, not a
+//measurement: it is what fits beside a dock on a phone, and it is the same on every model
+#define VAON_LANDSCAPE_CELLS_PER_PAGE 3
+
+
 BOOL hideInLandscape;
 BOOL landscapeOffsetEnabled;
 CGFloat landscapeHorizontalOffset;
 CGFloat landscapeVerticalOffset;
+BOOL landscapeModuleEnabled;
+NSString *landscapeModuleSide;
 NSLayoutConstraint *vaonBottomConstraint;
 NSLayoutConstraint *vaonCenterXConstraint;
+NSLayoutConstraint *vaonWidthConstraint;
 CGFloat vaonViewHeightCaptured;
 
 //defined lower down but used by the fade helpers above them
@@ -90,6 +97,47 @@ static BOOL vaonIsLandscape(UIView *view);
 static void vaonApplyOrientationLayout(UIView *host);
 
 SBSwitcherAppSuggestionContentView *switcherContentView;
+
+//whether the switcher itself is laid out landscape, which is not the same question as how the phone is
+//being held. probed on 16.1.4 2026-09-10 at didMoveToWindow, with the phone held landscape throughout:
+//home screen 430x932, landscape app 932x430, portrait-locked app 430x932. the content view is the only
+//thing that turns. the window stays 430x932 because SpringBoard is portrait locked, the scene reports
+//portrait in all three, statusBarOrientation is 0, and UIDevice.orientation is 4 in all three because it
+//only reports the tilt. that makes bounds exactly the rule asked for: portrait on the home screen,
+//otherwise whatever the app in use is doing
+static BOOL vaonSwitcherIsLandscape(void) {
+	if(!switcherContentView) return FALSE;
+	CGRect b = switcherContentView.bounds;
+	if(b.size.width <= 0 || b.size.height <= 0) return FALSE;
+	return b.size.width > b.size.height;
+}
+
+//the landscape module is the floating dock layout: three cells to a page, a module only wide enough to
+//hold them, parked against one side. it means nothing in portrait, and hideInLandscape still wins.
+//this asks the switcher, not vaonIsLandscape: the module has to follow the app in use, and the tilt
+//first rule vaonIsLandscape uses is deliberate for hideInLandscape and the offsets
+static BOOL vaonLandscapeModuleActive(void) {
+	if(!landscapeModuleEnabled || hideInLandscape) return FALSE;
+	return vaonSwitcherIsLandscape();
+}
+
+//how many cells go on a page, and how wide the module and therefore a page is. both answers come from
+//the same decision, so they are resolved together rather than read from the preferences at each site
+static NSInteger vaonCellsPerPage(void) {
+	if(vaonLandscapeModuleActive()) return VAON_LANDSCAPE_CELLS_PER_PAGE;
+	return devicesPerPage < 1 ? 1 : devicesPerPage;
+}
+
+static CGFloat vaonModuleWidth(void) {
+	if(vaonLandscapeModuleActive()){
+		//the cell width and the gap are the same figures the cells and the page stack use, so three
+		//cells and a gap at each end is exactly what fits, whatever the user has set them to
+		CGFloat cell = customBatteryCellSizeEnabled ? customBatteryCellSize : 50;
+		CGFloat gap = horizontalSpacingBetweenDevicesEnabled ? horizontalSpacingBetweenDevices : 12;
+		return VAON_LANDSCAPE_CELLS_PER_PAGE * cell + (VAON_LANDSCAPE_CELLS_PER_PAGE + 1) * gap;
+	}
+	return customWidthEnabled ? customWidth : dockWidth;
+}
 //frontmost app bundle id captured when the switcher opened; used to tell a cancelled leave (same
 //front app, switcher stays) from an app launch or going home (front app changes)
 NSString *vaonOpenFrontApp;
@@ -604,10 +652,10 @@ static void vaonLayoutPages() {
 	vaonFlattenPages();
 	vaonSortBatteryCells();
 	NSArray *cells = [batteryHStackView.arrangedSubviews copy];
-	NSInteger n = devicesPerPage < 1 ? 1 : devicesPerPage;
+	NSInteger n = vaonCellsPerPage();
 	NSInteger count = cells.count;
 	//the scroll view width equals the vaon view width; use it directly (bounds may not be laid out yet)
-	CGFloat pageWidth = customWidthEnabled ? customWidth : dockWidth;
+	CGFloat pageWidth = vaonModuleWidth();
 	if(pageWidth <= 0) pageWidth = batteryScrollView.bounds.size.width;
 	NSInteger numPages = (count == 0) ? 0 : (count + n - 1) / n;
 	//the Custom Spacing adjuster now only fine-tunes the gap between cells inside a page
@@ -1235,12 +1283,21 @@ void initBaseVaonView(UIView* view) {
 }
 
 void updateScrollWidthAndTouchPassthrough() {
-	//the result only depends on the stack width; skip the recompute when it has not moved
+	//the result depends on the stack width and on what it is being measured against, and the second one
+	//now moves with the orientation, so both are cached or a rotation keeps the previous answer
 	static CGFloat lastWidth = -1;
+	static CGFloat lastLimit = -1;
 	CGFloat currentWidth = batteryHStackView.bounds.size.width;
-	if(currentWidth == lastWidth) return;
+	CGFloat limit = vaonModuleWidth();
+	if(currentWidth == lastWidth && limit == lastLimit) return;
 	lastWidth = currentWidth;
-	if((customWidthEnabled && batteryHStackView.bounds.size.width > customWidth) || batteryHStackView.bounds.size.width > dockWidth){
+	lastLimit = limit;
+	//portrait keeps the test it shipped with; the landscape module is narrower than dockWidth, so
+	//measuring it against dockWidth would leave a two page module unscrollable and untappable
+	BOOL overflows = vaonLandscapeModuleActive()
+		? (currentWidth > limit)
+		: ((customWidthEnabled && currentWidth > customWidth) || currentWidth > dockWidth);
+	if(overflows){
 		batteryScrollView.scrollEnabled = TRUE;
 			vaonView.userInteractionEnabled = TRUE;
 			batteryScrollView.userInteractionEnabled = TRUE;
@@ -1271,7 +1328,7 @@ static void vaonRestoreBatteryPage() {
 	if(target < 0) target = 0;
 	if(target >= pages) target = pages > 0 ? pages - 1 : 0;
 	currentBatteryPage = target;
-	CGFloat pw = customWidthEnabled ? customWidth : dockWidth;
+	CGFloat pw = vaonModuleWidth();
 	if(pw <= 0) pw = batteryScrollView.bounds.size.width;
 	if(pw > 0) batteryScrollView.contentOffset = CGPointMake(target * pw, 0);
 	if(batteryPageControl) batteryPageControl.currentPage = target;
@@ -1480,7 +1537,7 @@ void fadeViewIn(UIView *view, CGFloat duration){
 	//in landscape offset mode the position comes purely from the constraints (which carry the
 	//landscape offsets); skip the frame based placement that would otherwise pin it to the portrait
 	//resting spot and mask the offset, and let a layout pass apply the constraint position
-	BOOL landscapeActive = landscapeOffsetEnabled && vaonIsLandscape(view);
+	BOOL landscapeActive = vaonLandscapeModuleActive() || (landscapeOffsetEnabled && vaonIsLandscape(view));
 
 	CGRect mainScreen = [[UIScreen mainScreen] bounds];
 
@@ -1535,7 +1592,7 @@ void fadeViewOut(UIView *view, CGFloat duration){
 	}
 	//landscape offset mode keeps the view at its constraint position and just fades, so the slide
 	//offscreen (which uses the portrait screen height) does not fight the offset
-	BOOL landscapeActive = landscapeOffsetEnabled && vaonIsLandscape(view);
+	BOOL landscapeActive = vaonLandscapeModuleActive() || (landscapeOffsetEnabled && vaonIsLandscape(view));
 	CGRect mainScreen = [[UIScreen mainScreen] bounds];
 
 	if(!landscapeActive && !enableFlyInOut) {
@@ -1576,6 +1633,22 @@ static BOOL vaonIsLandscape(UIView *view){
 static void vaonApplyOrientationLayout(UIView *host){
 	if(!vaonBottomConstraint || !vaonCenterXConstraint) return;
 	BOOL landscape = vaonIsLandscape(host);
+	if(vaonLandscapeModuleActive()){
+		CGFloat width = vaonModuleWidth();
+		if(vaonWidthConstraint) vaonWidthConstraint.constant = width;
+		//park against a side of the host rather than a screen figure: mainScreen stays portrait here,
+		//and the host is the strip the module already lives in
+		CGFloat hostWidth = host.bounds.size.width;
+		if(hostWidth <= 0) hostWidth = host.window ? host.window.bounds.size.width : 0;
+		CGFloat edge = (hostWidth - width) / 2.0;
+		if(edge < 0) edge = 0;
+		//positive moves right, which is what the horizontal slider already does
+		if([landscapeModuleSide isEqualToString:@"left"]) edge = -edge;
+		vaonCenterXConstraint.constant = edge + landscapeHorizontalOffset;
+		vaonBottomConstraint.constant = vaonViewHeightCaptured + landscapeVerticalOffset;
+		return;
+	}
+	if(vaonWidthConstraint) vaonWidthConstraint.constant = vaonModuleWidth();
 	if(landscapeOffsetEnabled && landscape){
 		vaonBottomConstraint.constant = vaonViewHeightCaptured + landscapeVerticalOffset;
 		vaonCenterXConstraint.constant = landscapeHorizontalOffset;
@@ -1624,12 +1697,10 @@ static void vaonApplyOrientationLayout(UIView *host){
 				vaonBottomConstraint.active = TRUE;
 				vaonCenterXConstraint = [vaonView.centerXAnchor constraintEqualToAnchor:self.centerXAnchor constant:0];
 				vaonCenterXConstraint.active = TRUE;
-				vaonApplyOrientationLayout(self);
-				if(customWidthEnabled){
-					[vaonView.widthAnchor constraintEqualToConstant:customWidth].active = TRUE;
-				} else{
-					[vaonView.widthAnchor constraintEqualToConstant:dockWidth].active = TRUE;
-				}
+				//kept like the bottom and centerX constraints: the landscape module re-tunes the width
+				//per orientation, and a constraint created and dropped here could not be reached again
+				vaonWidthConstraint = [vaonView.widthAnchor constraintEqualToConstant:vaonModuleWidth()];
+				vaonWidthConstraint.active = TRUE;
 				if(customHeightEnabled){
 					[vaonView.heightAnchor constraintEqualToConstant:customHeight].active = TRUE;
 				} else{
@@ -1784,6 +1855,8 @@ void updateSettings(){
 		@"customHorizontalOffsetEnabled": @FALSE,
 		@"customHorizontalOffset": @0,
 		@"hideInLandscape": @FALSE,
+		@"landscapeModuleEnabled": @FALSE,
+		@"landscapeModuleSide": @"right",
 		@"landscapeOffsetEnabled": @FALSE,
 		@"landscapeHorizontalOffset": @0,
 		@"landscapeVerticalOffset": @-80,
@@ -1844,6 +1917,10 @@ void updateSettings(){
 	customHorizontalOffsetEnabled = [[prefs objectForKey:@"customHorizontalOffsetEnabled"] boolValue];
 	customHorizontalOffset = [[prefs objectForKey:@"customHorizontalOffset"] floatValue];
 	hideInLandscape = [[prefs objectForKey:@"hideInLandscape"] boolValue];
+	landscapeModuleEnabled = [[prefs objectForKey:@"landscapeModuleEnabled"] boolValue];
+	//the plist is user writable and the side ends up as an isEqualToString: argument
+	id side = [prefs objectForKey:@"landscapeModuleSide"];
+	landscapeModuleSide = [side isKindOfClass:[NSString class]] ? side : @"right";
 	landscapeOffsetEnabled = [[prefs objectForKey:@"landscapeOffsetEnabled"] boolValue];
 	landscapeHorizontalOffset = [[prefs objectForKey:@"landscapeHorizontalOffset"] floatValue];
 	landscapeVerticalOffset = [[prefs objectForKey:@"landscapeVerticalOffset"] floatValue];
