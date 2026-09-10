@@ -93,13 +93,14 @@ NSLayoutConstraint *vaonWidthConstraint;
 CGFloat vaonViewHeightCaptured;
 
 //defined lower down but used by the fade helpers above them
-static BOOL vaonIsLandscape(UIView *view);
 static void vaonApplyOrientationLayout(UIView *host);
 
 SBSwitcherAppSuggestionContentView *switcherContentView;
 
 //whether the switcher itself is laid out landscape, which is not the same question as how the phone is
-//being held. probed on 16.1.4 2026-09-10 at didMoveToWindow, with the phone held landscape throughout:
+//being held. every orientation test in the tweak goes through here: the module, hideInLandscape and the
+//offsets all want the app in use, and a phone held sideways over the home screen is not that.
+//probed on 16.1.4 2026-09-10 at didMoveToWindow, with the phone held landscape throughout:
 //home screen 430x932, landscape app 932x430, portrait-locked app 430x932. the content view is the only
 //thing that turns. the window stays 430x932 because SpringBoard is portrait locked, the scene reports
 //portrait in all three, statusBarOrientation is 0, and UIDevice.orientation is 4 in all three because it
@@ -113,9 +114,7 @@ static BOOL vaonSwitcherIsLandscape(void) {
 }
 
 //the landscape module is the floating dock layout: three cells to a page, a module only wide enough to
-//hold them, parked against one side. it means nothing in portrait, and hideInLandscape still wins.
-//this asks the switcher, not vaonIsLandscape: the module has to follow the app in use, and the tilt
-//first rule vaonIsLandscape uses is deliberate for hideInLandscape and the offsets
+//hold them, parked against one side. it means nothing in portrait, and hideInLandscape still wins
 static BOOL vaonLandscapeModuleActive(void) {
 	if(!landscapeModuleEnabled || hideInLandscape) return FALSE;
 	return vaonSwitcherIsLandscape();
@@ -1537,7 +1536,7 @@ void fadeViewIn(UIView *view, CGFloat duration){
 	//in landscape offset mode the position comes purely from the constraints (which carry the
 	//landscape offsets); skip the frame based placement that would otherwise pin it to the portrait
 	//resting spot and mask the offset, and let a layout pass apply the constraint position
-	BOOL landscapeActive = vaonLandscapeModuleActive() || (landscapeOffsetEnabled && vaonIsLandscape(view));
+	BOOL landscapeActive = vaonLandscapeModuleActive() || (landscapeOffsetEnabled && vaonSwitcherIsLandscape());
 
 	CGRect mainScreen = [[UIScreen mainScreen] bounds];
 
@@ -1592,7 +1591,7 @@ void fadeViewOut(UIView *view, CGFloat duration){
 	}
 	//landscape offset mode keeps the view at its constraint position and just fades, so the slide
 	//offscreen (which uses the portrait screen height) does not fight the offset
-	BOOL landscapeActive = vaonLandscapeModuleActive() || (landscapeOffsetEnabled && vaonIsLandscape(view));
+	BOOL landscapeActive = vaonLandscapeModuleActive() || (landscapeOffsetEnabled && vaonSwitcherIsLandscape());
 	CGRect mainScreen = [[UIScreen mainScreen] bounds];
 
 	if(!landscapeActive && !enableFlyInOut) {
@@ -1613,26 +1612,12 @@ void fadeViewOut(UIView *view, CGFloat duration){
 }
 
 
-//true when the switcher is currently landscape. SpringBoard stays portrait-locked so the window
-//scene orientation is unreliable inside the switcher; trust the physical device orientation first,
-//then fall back to any landscape interface/geometry signal when the device is flat or unknown
-static BOOL vaonIsLandscape(UIView *view){
-	UIDeviceOrientation dev = [UIDevice currentDevice].orientation;
-	if(UIDeviceOrientationIsLandscape(dev)) return YES;
-	if(UIDeviceOrientationIsPortrait(dev)) return NO;
-	UIWindowScene *scene = view.window.windowScene;
-	if(scene && UIInterfaceOrientationIsLandscape(scene.interfaceOrientation)) return YES;
-	CGRect b = view.window ? view.window.bounds : view.bounds;
-	if(b.size.width > 0 && b.size.height > 0) return b.size.width > b.size.height;
-	return NO;
-}
-
 //place the vaon view for the current orientation. landscape uses its own offsets when enabled,
 //otherwise it falls back to the portrait custom offsets (or the defaults). runs on every open so
 //rotating between switcher opens re-tunes the position without rebuilding the view
 static void vaonApplyOrientationLayout(UIView *host){
 	if(!vaonBottomConstraint || !vaonCenterXConstraint) return;
-	BOOL landscape = vaonIsLandscape(host);
+	BOOL landscape = vaonSwitcherIsLandscape();
 	if(vaonLandscapeModuleActive()){
 		CGFloat width = vaonModuleWidth();
 		if(vaonWidthConstraint) vaonWidthConstraint.constant = width;
@@ -1722,7 +1707,7 @@ static void vaonApplyOrientationLayout(UIView *host){
 
 			//re-place for the current orientation, then suppress entirely when hidden in landscape
 			vaonApplyOrientationLayout(self);
-			BOOL suppressForLandscape = hideInLandscape && vaonIsLandscape(self);
+			BOOL suppressForLandscape = hideInLandscape && vaonSwitcherIsLandscape();
 			if(vaonView){
 				if(suppressForLandscape){
 					vaonView.hidden = YES;
@@ -1974,11 +1959,6 @@ void updateSettings(){
 	//Vaon targets iOS 16. The version floor alone still admits later firmwares, and a hook on
 	//a class that is not there installs silently and does nothing
 	if(isEnabled && kCFCoreFoundationVersionNumber > 1900 && NSClassFromString(@"SBSwitcherAppSuggestionContentView")){
-		//keep UIDevice.orientation populated so landscape detection works in the switcher
-		if(![selectedModule isEqual:@"none"]){
-			[[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
-		}
-
 		%init;
 		if(NSClassFromString(@"SBMainSwitcherControllerCoordinator")){
 			%init(iOS16SwitcherCoordinator);
