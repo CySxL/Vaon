@@ -120,16 +120,33 @@ static NSInteger vaonCellsPerPage(void) {
 	return devicesPerPage < 1 ? 1 : devicesPerPage;
 }
 
+static CGFloat vaonCellWidth(void) {
+	return customBatteryCellSizeEnabled ? customBatteryCellSize : 50;
+}
+
+static CGFloat vaonCellGap(void) {
+	return horizontalSpacingBetweenDevicesEnabled ? horizontalSpacingBetweenDevices : 12;
+}
+
 static CGFloat vaonModuleWidth(void) {
-	if(vaonLandscapeModuleActive()){
-		//the cell width and the gap are the same figures the cells and the page stack use, so three
-		//cells and a gap at each end is exactly what fits, whatever the user has set them to
-		CGFloat cell = customBatteryCellSizeEnabled ? customBatteryCellSize : 50;
-		CGFloat gap = horizontalSpacingBetweenDevicesEnabled ? horizontalSpacingBetweenDevices : 12;
-		return VAON_LANDSCAPE_CELLS_PER_PAGE * cell + (VAON_LANDSCAPE_CELLS_PER_PAGE + 1) * gap;
-	}
+	//three cells and a gap at each end
+	if(vaonLandscapeModuleActive()) return VAON_LANDSCAPE_CELLS_PER_PAGE * vaonCellWidth() + (VAON_LANDSCAPE_CELLS_PER_PAGE + 1) * vaonCellGap();
 	return customWidthEnabled ? customWidth : dockWidth;
 }
+
+//the module pages three at a time, so a page index from portrait would land on other devices
+static NSString *vaonLastPageKey(void) {
+	return vaonLandscapeModuleActive() ? @"lastLandscapeBatteryPage" : @"lastBatteryPage";
+}
+
+//private, so asked before it is sent
+static NSString *vaonFrontAppID(void) {
+	UIApplication *app = [UIApplication sharedApplication];
+	if(![app respondsToSelector:@selector(_accessibilityFrontMostApplication)]) return nil;
+	SBApplication *front = [(SpringBoard *)app _accessibilityFrontMostApplication];
+	return [front bundleIdentifier];
+}
+
 //frontmost app bundle id captured when the switcher opened; used to tell a cancelled leave (same
 //front app, switcher stays) from an app launch or going home (front app changes)
 NSString *vaonOpenFrontApp;
@@ -463,7 +480,7 @@ static void vaonRecordDevice(BCBatteryDevice *device) {
 	for(NSDictionary *d in vaonKnownDeviceList()){
 		if([vaonDeviceKey(d[@"identifier"], d[@"name"]) isEqualToString:key] && d[@"glyph"]){ haveGlyph = YES; break; }
 	}
-	UIImage *glyph = haveGlyph ? nil : [device batteryWidgetGlyph];
+	UIImage *glyph = (haveGlyph || ![device respondsToSelector:@selector(batteryWidgetGlyph)]) ? nil : [device batteryWidgetGlyph];
 	vaonUpsertKnownDevice(ident, [device name], [device productIdentifier], glyph, [device percentCharge], nil);
 }
 
@@ -662,8 +679,7 @@ static void vaonLayoutPages() {
 	CGFloat pageWidth = vaonModuleWidth();
 	if(pageWidth <= 0) pageWidth = batteryScrollView.bounds.size.width;
 	NSInteger numPages = (count == 0) ? 0 : (count + n - 1) / n;
-	//the Custom Spacing adjuster now only fine-tunes the gap between cells inside a page
-	CGFloat interCell = horizontalSpacingBetweenDevicesEnabled ? horizontalSpacingBetweenDevices : 12;
+	CGFloat interCell = vaonCellGap();
 	for(UIView *v in cells){ [batteryHStackView removeArrangedSubview:v]; [v removeFromSuperview]; }
 	batteryHStackView.spacing = 0;
 	batteryHStackView.layoutMarginsRelativeArrangement = NO;
@@ -727,7 +743,7 @@ static void vaonLayoutPages() {
 		if(!decelerate) [self vaonFadeDotsOut];
 	}
 	-(void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
-		if(rememberLastPage) [prefs setObject:@(currentBatteryPage) forKey:@"lastBatteryPage"];
+		if(rememberLastPage) [prefs setObject:@(currentBatteryPage) forKey:vaonLastPageKey()];
 		[self vaonFadeDotsOut];
 	}
 @end
@@ -779,9 +795,10 @@ static void vaonLayoutPages() {
 
 	//convenience init for a live connected device
     -(instancetype)initWithFrame:(CGRect)arg1 device:(BCBatteryDevice *)connectedDevice {
-        UIImage *glyph = [connectedDevice batteryWidgetGlyph];
+        UIImage *glyph = [connectedDevice respondsToSelector:@selector(batteryWidgetGlyph)] ? [connectedDevice batteryWidgetGlyph] : nil;
         UIImage *custom = vaonCustomGlyphForName(connectedDevice.name);
         if(custom) glyph = custom;
+        if(!glyph) glyph = [UIImage systemImageNamed:@"antenna.radiowaves.left.and.right"];
         return [self initWithFrame:arg1 device:connectedDevice glyphImage:glyph percentage:[connectedDevice percentCharge] name:connectedDevice.name identifier:connectedDevice.identifier productIdentifier:connectedDevice.productIdentifier disconnected:FALSE];
     }
 
@@ -815,11 +832,7 @@ static void vaonLayoutPages() {
         if(!self) return nil;
 
         self.device = connectedDevice;
-		if(customBatteryCellSizeEnabled){
-        	self.cellWidth = CGFloat(customBatteryCellSize);
-		} else {
-			self.cellWidth = CGFloat(50);
-		}
+		self.cellWidth = vaonCellWidth();
         self.devicePercentage = pPercentage;
 
         self.axis = UILayoutConstraintAxisVertical;
@@ -1295,12 +1308,7 @@ void updateScrollWidthAndTouchPassthrough() {
 	if(currentWidth == lastWidth && limit == lastLimit) return;
 	lastWidth = currentWidth;
 	lastLimit = limit;
-	//portrait keeps the test it shipped with; the landscape module is narrower than dockWidth, so
-	//measuring it against dockWidth would leave a two page module unscrollable and untappable
-	BOOL overflows = vaonLandscapeModuleActive()
-		? (currentWidth > limit)
-		: ((customWidthEnabled && currentWidth > customWidth) || currentWidth > dockWidth);
-	if(overflows){
+	if(currentWidth > limit){
 		batteryScrollView.scrollEnabled = TRUE;
 			vaonView.userInteractionEnabled = TRUE;
 			batteryScrollView.userInteractionEnabled = TRUE;
@@ -1327,7 +1335,7 @@ static void vaonRestoreBatteryPage() {
 	if(!batteryScrollView) return;
 	[batteryScrollView layoutIfNeeded];
 	NSInteger pages = batteryPageControl.numberOfPages;
-	NSInteger target = rememberLastPage ? [[prefs objectForKey:@"lastBatteryPage"] integerValue] : 0;
+	NSInteger target = rememberLastPage ? [[prefs objectForKey:vaonLastPageKey()] integerValue] : 0;
 	if(target < 0) target = 0;
 	if(target >= pages) target = pages > 0 ? pages - 1 : 0;
 	currentBatteryPage = target;
@@ -1343,7 +1351,8 @@ void updateBatteryView(){
 		NSArray *shownCells = vaonAllBatteryCells();
 		BOOL cellsAdded = FALSE;
 
-		connectedBluetoothDevices = [[%c(BCBatteryDeviceController) _sharedPowerSourceController] connectedDevices];
+		Class batteryController = %c(BCBatteryDeviceController);
+		connectedBluetoothDevices = [batteryController respondsToSelector:@selector(_sharedPowerSourceController)] ? [[batteryController _sharedPowerSourceController] connectedDevices] : @[];
 		NSMutableArray *subviewsToBeAdded = [[NSMutableArray alloc] init];
 		//names BatteryCenter already covers, so the Bluetooth pass below does not double them up
 		NSMutableSet *batteryCenterNames = [NSMutableSet set];
@@ -1605,10 +1614,6 @@ void fadeViewOut(UIView *view, CGFloat duration){
 	BOOL landscapeActive = vaonLandscapeModuleActive() || (landscapeOffsetEnabled && vaonSwitcherIsLandscape());
 	CGRect mainScreen = [[UIScreen mainScreen] bounds];
 
-	if(!landscapeActive && !enableFlyInOut) {
-		view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + VAON_OFFSCREEN_DROP, view.frame.size.width, view.frame.size.height);
-	}
-
 	[UIView animateWithDuration:duration animations:^ {
 		if(!landscapeActive && enableFlyInOut) {
 			view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + VAON_OFFSCREEN_DROP, view.frame.size.width, view.frame.size.height);
@@ -1704,9 +1709,7 @@ static void vaonApplyOrientationLayout(UIView *host){
 		}
 		
 		{
-			SBApplication *frontApp = [(SpringBoard*)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
-			NSString *currentAppDisplayID = [frontApp bundleIdentifier];
-			vaonOpenFrontApp = [currentAppDisplayID copy];
+			vaonOpenFrontApp = [vaonFrontAppID() copy];
 
 
 
@@ -1774,8 +1777,7 @@ static void vaonApplyOrientationLayout(UIView *host){
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 				//a cancelled leave keeps the same frontmost app and the switcher on screen; if a
 				//different app was launched (or we went home), skip so vaon does not flash back in
-				SBApplication *nowFront = [(SpringBoard*)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
-				NSString *nowID = [nowFront bundleIdentifier];
+				NSString *nowID = vaonFrontAppID();
 				BOOL sameFront = (nowID == vaonOpenFrontApp) || [nowID isEqualToString:vaonOpenFrontApp];
 				if(sameFront && switcherContentView && switcherContentView.window != nil && !vaonShown && vaonView && !vaonView.hidden){
 					fadeViewIn(vaonView, 0.25);
