@@ -38,6 +38,7 @@ BOOL enableBoldPercentage;
 BOOL roundOutlineCorners;
 BOOL pulsateChargingOutline;
 BOOL keepDisconnectedDevices;
+BOOL expireUnseenDevices;
 NSString *batteryTextColor = nil;
 NSString *customBatteryTextColor = nil;
 NSString *batteryGlyphBackgroundMode = nil;
@@ -1532,7 +1533,7 @@ void updateBatteryView(){
 			vaonRestoreBatteryPage();
 		}
 
-		if(vaonKnownDevices) vaonExpireKnownDevices(vaonKnownDevices);
+		if(expireUnseenDevices && vaonKnownDevices) vaonExpireKnownDevices(vaonKnownDevices);
 		vaonFlushKnownDevices();
 }
 
@@ -1849,6 +1850,7 @@ void updateSettings(){
 		@"roundOutlineCorners": @TRUE,
 		@"pulsateChargingOutline": @TRUE,
 		@"keepDisconnectedDevices": @TRUE,
+		@"expireUnseenDevices": @TRUE,
 		@"devicesPerPage": @4,
 		@"showPageDots": @TRUE,
 		@"pageDotsOnlyWhileSwiping": @FALSE,
@@ -1913,6 +1915,7 @@ void updateSettings(){
 	roundOutlineCorners = [[prefs objectForKey:@"roundOutlineCorners"] boolValue];
 	pulsateChargingOutline = [[prefs objectForKey:@"pulsateChargingOutline"] boolValue];
 	keepDisconnectedDevices = [[prefs objectForKey:@"keepDisconnectedDevices"] boolValue];
+	expireUnseenDevices = [prefs boolForKey:@"expireUnseenDevices"];
 	devicesPerPage = [[prefs objectForKey:@"devicesPerPage"] integerValue];
 	if(devicesPerPage < 1) devicesPerPage = 1;
 	if(devicesPerPage > 10) devicesPerPage = 10;

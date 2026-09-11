@@ -399,22 +399,38 @@ static void vaonRespring(void) {
 		return avail[ip.row];
 	}
 
-	-(NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
+	-(NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 3; }
 
 	-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+		if(section == 2) return 1;
 		if(_knownDevices.count == 0) return (section == 0) ? 1 : 0;
 		return (section == 0) ? _pinnedIds.count : [self availableDevices].count;
 	}
 
 	-(NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+		if(section == 2) return @"Automatic Removal";
 		return (section == 0) ? @"Pinned (drag to reorder)" : @"Available Devices";
 	}
 
 	-(NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+		if(section == 2) return @"Removes devices that have not connected for 90 days. Pinned devices are never removed. Respring to apply.";
 		return (section == 1) ? @"Pinned devices stay shown after respring, even when disconnected. Respring to apply." : nil;
 	}
 
 	-(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+		if(indexPath.section == 2){
+			UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"vaonExpiryCell"];
+			cell.selectionStyle = UITableViewCellSelectionStyleNone;
+			cell.textLabel.text = @"Remove Unseen Devices";
+			UISwitch *sw = [[UISwitch alloc] init];
+			//unset means on, which is what the tweak registers
+			id stored = [[self store] objectForKey:@"expireUnseenDevices"];
+			sw.on = [stored isKindOfClass:[NSNumber class]] ? [stored boolValue] : YES;
+			[sw addTarget:self action:@selector(expirySwitchChanged:) forControlEvents:UIControlEventValueChanged];
+			cell.accessoryView = sw;
+			cell.editingAccessoryView = sw;
+			return cell;
+		}
 		UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"vaonDeviceCell"];
 		cell.selectionStyle = UITableViewCellSelectionStyleNone;
 		if(_knownDevices.count == 0){
@@ -467,6 +483,12 @@ static void vaonRespring(void) {
 		[_tableView reloadData];
 	}
 
+	-(void)expirySwitchChanged:(UISwitch *)sw {
+		NSUserDefaults *d = [self store];
+		[d setBool:sw.on forKey:@"expireUnseenDevices"];
+		[d synchronize];
+	}
+
 	-(UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath {
 		//available devices can be deleted from the store to declutter; pinned rows only reorder
 		return (indexPath.section == 1 && _knownDevices.count > 0) ? UITableViewCellEditingStyleDelete : UITableViewCellEditingStyleNone;
@@ -474,7 +496,7 @@ static void vaonRespring(void) {
 
 	-(BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
 		//both sections must be editable so section 0 shows the reorder control; editingStyle differentiates
-		return (_knownDevices.count > 0);
+		return (indexPath.section != 2 && _knownDevices.count > 0);
 	}
 
 	-(void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
