@@ -87,6 +87,8 @@ BOOL hideInLandscape;
 BOOL landscapeOffsetEnabled;
 CGFloat landscapeHorizontalOffset;
 CGFloat landscapeVerticalOffset;
+CGFloat landscapeModuleHorizontalOffset;
+CGFloat landscapeModuleVerticalOffset;
 BOOL landscapeModuleEnabled;
 NSString *landscapeModuleSide;
 NSLayoutConstraint *vaonBottomConstraint;
@@ -1635,8 +1637,8 @@ static void vaonApplyOrientationLayout(UIView *host){
 		if(edge < 0) edge = 0;
 		//positive moves right, which is what the horizontal slider already does
 		if([landscapeModuleSide isEqualToString:@"left"]) edge = -edge;
-		vaonCenterXConstraint.constant = edge + landscapeHorizontalOffset;
-		vaonBottomConstraint.constant = landscapeVerticalOffset;
+		vaonCenterXConstraint.constant = edge + landscapeModuleHorizontalOffset;
+		vaonBottomConstraint.constant = landscapeModuleVerticalOffset;
 		return;
 	}
 	if(vaonWidthConstraint) vaonWidthConstraint.constant = vaonModuleWidth();
@@ -1897,6 +1899,12 @@ void updateSettings(){
 	landscapeOffsetEnabled = [prefs boolForKey:@"landscapeOffsetEnabled"];
 	landscapeHorizontalOffset = [prefs floatForKey:@"landscapeHorizontalOffset"];
 	landscapeVerticalOffset = [prefs floatForKey:@"landscapeVerticalOffset"];
+	//until the settings page has stored the module's own offsets it keeps the landscape ones it was tuned
+	//with, so these two are not registered above
+	id moduleX = [prefs objectForKey:@"landscapeModuleHorizontalOffset"];
+	id moduleY = [prefs objectForKey:@"landscapeModuleVerticalOffset"];
+	landscapeModuleHorizontalOffset = [moduleX isKindOfClass:[NSNumber class]] ? [moduleX floatValue] : landscapeHorizontalOffset;
+	landscapeModuleVerticalOffset = [moduleY isKindOfClass:[NSNumber class]] ? [moduleY floatValue] : landscapeVerticalOffset;
 	hideInternal = [prefs boolForKey:@"hideInternal"];
 	hidePercentageLabel = [prefs boolForKey:@"hidePercentageLabel"];
 	hidePercent = [prefs boolForKey:@"hidePercent"];

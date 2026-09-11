@@ -147,16 +147,39 @@ static void vaonRespring(void) {
     }
 @end
 
+//the two sets of landscape sliders, each shown only while its own switch is on
+static NSArray *vaonLandscapeOffsetIDs(void) {
+	return @[@"landscapeHOffsetHeader", @"landscapeHorizontalOffset", @"landscapeVOffsetHeader", @"landscapeVerticalOffset"];
+}
+
+static NSArray *vaonLandscapeModuleIDs(void) {
+	return @[@"landscapeModuleSideHeader", @"landscapeModuleSide", @"landscapeModuleHOffsetHeader", @"landscapeModuleHorizontalOffset", @"landscapeModuleVOffsetHeader", @"landscapeModuleVerticalOffset"];
+}
+
+//everything Hide in Landscape takes off the page
+static NSArray *vaonLandscapeIDs(void) {
+	NSMutableArray *ids = [NSMutableArray arrayWithObjects:@"landscapeFullWidthHeader", @"landscapeOffsetEnabled", nil];
+	[ids addObjectsFromArray:vaonLandscapeOffsetIDs()];
+	[ids addObjectsFromArray:@[@"landscapeModuleHeader", @"landscapeModuleEnabled"]];
+	[ids addObjectsFromArray:vaonLandscapeModuleIDs()];
+	return ids;
+}
+
 @implementation VaonRootListController {
 	//the pagination options that only make sense when page dots are shown; stashed so they can be
 	//pulled out and re-inserted as the Show Page Dots switch flips
 	NSArray *_swipeDependentSpecifiers;
-	//the landscape offset controls, shown only while Vaon is not hidden in landscape
-	NSArray *_landscapeOffsetSpecifiers;
+	//everything under Hide in Landscape, in page order
+	NSArray *_landscapeSpecifiers;
 }
 	//-(id)readPreferenceValue:(PSSpecifier*)specifier; use this to get the current modele selected and make a method that returns it and passes it into the pslinkcell in root.plist
 	-(id)init {
 		prefs = [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
+		//the module's offsets start from the landscape ones it was tuned with, copied once
+		for(NSArray *pair in @[@[@"landscapeHorizontalOffset", @"landscapeModuleHorizontalOffset"], @[@"landscapeVerticalOffset", @"landscapeModuleVerticalOffset"]]){
+			id old = [prefs objectForKey:pair[0]];
+			if(![prefs objectForKey:pair[1]] && [old isKindOfClass:[NSNumber class]]) [prefs setObject:old forKey:pair[1]];
+		}
 		return [super init];
 	}
 
@@ -171,19 +194,15 @@ static void vaonRespring(void) {
 				if([sid isEqualToString:@"verticalPageDots"] || [sid isEqualToString:@"pageDotsOnlyWhileSwiping"]){
 					[deps addObject:s];
 				}
-				if([sid isEqualToString:@"landscapeModuleEnabled"] || [sid isEqualToString:@"landscapeModuleSideHeader"] || [sid isEqualToString:@"landscapeModuleSide"] || [sid isEqualToString:@"landscapeOffsetEnabled"] || [sid isEqualToString:@"landscapeHOffsetHeader"] || [sid isEqualToString:@"landscapeHorizontalOffset"] || [sid isEqualToString:@"landscapeVOffsetHeader"] || [sid isEqualToString:@"landscapeVerticalOffset"]){
-					[landDeps addObject:s];
-				}
+				if([vaonLandscapeIDs() containsObject:sid]) [landDeps addObject:s];
 			}
 			_swipeDependentSpecifiers = deps;
-			_landscapeOffsetSpecifiers = landDeps;
+			_landscapeSpecifiers = landDeps;
 			if(!vaonPrefBool(@"showPageDots", YES)){
 				[all removeObjectsInArray:deps];
 			}
-			//the landscape offset controls only apply when Vaon is not hidden in landscape
-			if(vaonPrefBool(@"hideInLandscape", NO)){
-				[all removeObjectsInArray:landDeps];
-			}
+			NSArray *visible = [self visibleLandscapeSpecifiers:nil];
+			for(PSSpecifier *s in landDeps){ if(![visible containsObject:s]) [all removeObject:s]; }
 			_specifiers = all;
 		}
 
@@ -202,15 +221,34 @@ static void vaonRespring(void) {
 		}
 	}
 
-	//show the landscape offset controls only while Vaon is not hidden in landscape
-	-(void)setLandscapeOffsetDependentsVisible:(BOOL)visible {
-		if(_landscapeOffsetSpecifiers.count == 0) return;
-		BOOL currentlyShown = ([self indexOfSpecifier:_landscapeOffsetSpecifiers.firstObject] != NSNotFound);
-		if(visible && !currentlyShown){
-			PSSpecifier *anchor = [self specifierForID:@"hideInLandscape"];
-			if(anchor) [self insertContiguousSpecifiers:_landscapeOffsetSpecifiers afterSpecifier:anchor animated:YES];
-		} else if(!visible && currentlyShown){
-			[self removeContiguousSpecifiers:_landscapeOffsetSpecifiers animated:YES];
+	//the landscape controls that belong on the page: none while Hide in Landscape is on, and each set of
+	//sliders only while its switch is. values carries a switch that has just changed
+	-(NSArray *)visibleLandscapeSpecifiers:(NSDictionary *)values {
+		BOOL (^on)(NSString *) = ^BOOL(NSString *key){
+			id v = values[key];
+			return v ? [v boolValue] : vaonPrefBool(key, NO);
+		};
+		if(on(@"hideInLandscape")) return @[];
+		NSMutableArray *visible = [NSMutableArray array];
+		for(PSSpecifier *s in _landscapeSpecifiers){
+			NSString *sid = [s identifier];
+			if([vaonLandscapeOffsetIDs() containsObject:sid] && !on(@"landscapeOffsetEnabled")) continue;
+			if([vaonLandscapeModuleIDs() containsObject:sid] && !on(@"landscapeModuleEnabled")) continue;
+			[visible addObject:s];
+		}
+		return visible;
+	}
+
+	//bring the page in step with the switches, touching only the rows that change
+	-(void)refreshLandscapeSpecifiers:(NSDictionary *)values {
+		NSArray *visible = [self visibleLandscapeSpecifiers:values];
+		for(PSSpecifier *s in _landscapeSpecifiers){
+			if(![visible containsObject:s] && [self indexOfSpecifier:s] != NSNotFound) [self removeSpecifier:s animated:YES];
+		}
+		PSSpecifier *previous = [self specifierForID:@"hideInLandscape"];
+		for(PSSpecifier *s in visible){
+			if([self indexOfSpecifier:s] == NSNotFound) [self insertSpecifier:s afterSpecifier:previous animated:YES];
+			previous = s;
 		}
 	}
 
@@ -299,8 +337,9 @@ static void vaonRespring(void) {
 		if([specifier.properties[@"key"] isEqualToString:@"showPageDots"]){
 			[self setPageDotDependentsVisible:[value boolValue]];
 		}
-		if([specifier.properties[@"key"] isEqualToString:@"hideInLandscape"]){
-			[self setLandscapeOffsetDependentsVisible:![value boolValue]];
+		NSString *key = specifier.properties[@"key"];
+		if(value && [@[@"hideInLandscape", @"landscapeOffsetEnabled", @"landscapeModuleEnabled"] containsObject:key]){
+			[self refreshLandscapeSpecifiers:@{key: value}];
 		}
 		//everything needs a respring and the footer says so; the module choice rebuilds the view, so it asks
 		if([specifier.properties[@"key"] isEqualToString:@"moduleSelection"]){

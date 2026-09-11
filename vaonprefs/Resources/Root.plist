@@ -374,7 +374,7 @@
 			<key>label</key>
 			<string>Landscape (Beta)</string>
 			<key>footerText</key>
-			<string>For landscape with a floating dock: hide Vaon, park a narrow three-device module beside the dock, or nudge the full-width one aside with the offsets. Respring after changing.</string>
+			<string>Hide Vaon in landscape, or choose how it sits there. Respring after changing.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -392,49 +392,13 @@
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<false/>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>id</key>
-			<string>landscapeModuleEnabled</string>
-			<key>key</key>
-			<string>landscapeModuleEnabled</string>
-			<key>label</key>
-			<string>Landscape Module</string>
-		</dict>
-		<dict>
-			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>id</key>
-			<string>landscapeModuleSideHeader</string>
+			<string>landscapeFullWidthHeader</string>
 			<key>label</key>
-			<string>Module Side</string>
+			<string>Full Width</string>
 			<key>footerText</key>
-			<string>In landscape, show three devices to a page and park the module against this side of the dock. Use the offsets below to nudge it.</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSegmentCell</string>
-			<key>id</key>
-			<string>landscapeModuleSide</string>
-			<key>key</key>
-			<string>landscapeModuleSide</string>
-			<key>default</key>
-			<string>right</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>validTitles</key>
-			<array>
-				<string>Left</string>
-				<string>Right</string>
-			</array>
-			<key>validValues</key>
-			<array>
-				<string>left</string>
-				<string>right</string>
-			</array>
+			<string>Vaon centred above the stacked cards, as in portrait. Turn the offset on to move it in landscape.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -501,6 +465,112 @@
 			<string>com.atar13.vaonprefs</string>
 			<key>key</key>
 			<string>landscapeVerticalOffset</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>landscapeModuleHeader</string>
+			<key>label</key>
+			<string>Side Module</string>
+			<key>footerText</key>
+			<string>Three devices to a page in a narrow module parked against one side, beside a floating dock. While on, it takes the place of the full width layout in landscape.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>id</key>
+			<string>landscapeModuleEnabled</string>
+			<key>key</key>
+			<string>landscapeModuleEnabled</string>
+			<key>label</key>
+			<string>Landscape Module</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>landscapeModuleSideHeader</string>
+			<key>label</key>
+			<string>Module Side</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSegmentCell</string>
+			<key>id</key>
+			<string>landscapeModuleSide</string>
+			<key>key</key>
+			<string>landscapeModuleSide</string>
+			<key>default</key>
+			<string>right</string>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>validTitles</key>
+			<array>
+				<string>Left</string>
+				<string>Right</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<string>left</string>
+				<string>right</string>
+			</array>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>landscapeModuleHOffsetHeader</string>
+			<key>label</key>
+			<string>Module Horizontal Offset - X (left / right)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<integer>0</integer>
+			<key>min</key>
+			<integer>-450</integer>
+			<key>max</key>
+			<integer>450</integer>
+			<key>showValue</key>
+			<true/>
+			<key>id</key>
+			<string>landscapeModuleHorizontalOffset</string>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>key</key>
+			<string>landscapeModuleHorizontalOffset</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>landscapeModuleVOffsetHeader</string>
+			<key>label</key>
+			<string>Module Vertical Offset - Y (up / down)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<integer>-80</integer>
+			<key>min</key>
+			<integer>-400</integer>
+			<key>max</key>
+			<integer>100</integer>
+			<key>showValue</key>
+			<true/>
+			<key>id</key>
+			<string>landscapeModuleVerticalOffset</string>
+			<key>defaults</key>
+			<string>com.atar13.vaonprefs</string>
+			<key>key</key>
+			<string>landscapeModuleVerticalOffset</string>
 		</dict>
 		<dict>
 			<key>cell</key>
