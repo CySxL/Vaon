@@ -76,6 +76,71 @@ static void vaonRespring(void) {
 #endif
 }
 
+#if defined(THEOS_PACKAGE_SCHEME_ROOTHIDE)
+#define PACKAGE_SCHEME "roothide"
+#elif defined(THEOS_PACKAGE_SCHEME_ROOTLESS)
+#define PACKAGE_SCHEME "rootless"
+#elif defined(THEOS_PACKAGE_SCHEME_ROOTFUL)
+#define PACKAGE_SCHEME "rootful"
+#else
+#error theos defined no package scheme
+#endif
+
+static const CGFloat kVaonIconSide = 80.0;
+
+@interface VaonHeaderCell : PSTableCell
+@end
+
+@implementation VaonHeaderCell
+
+	-(instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)identifier specifier:(PSSpecifier *)specifier {
+		self = [super initWithStyle:style reuseIdentifier:identifier specifier:specifier];
+		if(!self) return nil;
+
+		UIImage *image = [UIImage imageNamed:@"images/vaon/vaonIcon" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
+		UIImageView *icon = [[UIImageView alloc] initWithImage:image];
+		icon.translatesAutoresizingMaskIntoConstraints = NO;
+		icon.clipsToBounds = YES;
+		icon.layer.cornerCurve = kCACornerCurveContinuous;
+		icon.layer.cornerRadius = kVaonIconSide * 0.225;
+		[self.contentView addSubview:icon];
+
+		UILabel *version = [[UILabel alloc] init];
+		version.text = @"Version " PACKAGE_VERSION "\n" PACKAGE_SCHEME;
+		version.numberOfLines = 2;
+		version.font = [UIFont systemFontOfSize:14.0];
+		version.textColor = [UIColor systemGrayColor];
+		version.textAlignment = NSTextAlignmentCenter;
+		version.translatesAutoresizingMaskIntoConstraints = NO;
+		[self.contentView addSubview:version];
+
+		[NSLayoutConstraint activateConstraints:@[
+			[icon.widthAnchor constraintEqualToConstant:kVaonIconSide],
+			[icon.heightAnchor constraintEqualToConstant:kVaonIconSide],
+			[icon.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
+			[icon.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10.0],
+			[version.topAnchor constraintEqualToAnchor:icon.bottomAnchor constant:8.0],
+			[version.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
+			[version.widthAnchor constraintEqualToAnchor:self.contentView.widthAnchor]
+		]];
+		return self;
+	}
+
+	//the row is the page's heading, not a setting: no separator, no grouped background, no selection
+	-(void)setSeparatorStyle:(UITableViewCellSeparatorStyle)style {
+		[super setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+	}
+
+	-(void)setBackgroundColor:(UIColor *)color {
+		[super setBackgroundColor:[UIColor clearColor]];
+	}
+
+	-(UITableViewCellSelectionStyle)selectionStyle {
+		return UITableViewCellSelectionStyleNone;
+	}
+
+@end
+
 @implementation BatteryColorPreferenceController
 
 	-(NSArray *)specifiers {
@@ -203,6 +268,11 @@ static NSArray *vaonLandscapeIDs(void) {
 			}
 			NSArray *visible = [self visibleLandscapeSpecifiers:nil];
 			for(PSSpecifier *s in landDeps){ if(![visible containsObject:s]) [all removeObject:s]; }
+			//Root.plist opens with a group, so the header gets a section of its own
+			PSSpecifier *header = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:NULL get:NULL detail:nil cell:PSStaticTextCell edit:nil];
+			[header setProperty:[VaonHeaderCell class] forKey:@"cellClass"];
+			[header setProperty:@142 forKey:@"height"];
+			[all insertObject:header atIndex:0];
 			_specifiers = all;
 		}
 
