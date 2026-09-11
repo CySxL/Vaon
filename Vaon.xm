@@ -1366,25 +1366,14 @@ void updateBatteryView(){
 				NSString *bcName = [device name];
 				if(bcName.length) [batteryCenterNames addObject:bcName];
 				BOOL duplicate = FALSE;
-				VaonDeviceBatteryCell *newCell = [[VaonDeviceBatteryCell alloc] initWithFrame:batteryHStackView.bounds device:device];
-				
-
-				//skip devices already shown; dedup against the current cells, not a growing name list
+				//skip devices already shown, compared on the device so a cell is only built for one being added
+				NSString *bcIdentifier = [device identifier];
 				for(VaonDeviceBatteryCell *subview in shownCells){
-					if([subview.deviceName isEqualToString:newCell.deviceName] || [subview.deviceIdentifier isEqualToString:newCell.deviceIdentifier]){
-						duplicate = TRUE;
-					}
+					if([subview.deviceName isEqualToString:bcName] || [subview.deviceIdentifier isEqualToString:bcIdentifier]){ duplicate = TRUE; break; }
 				}
-				if(!duplicate){
-					//add all devices that are not the iPhone/iPad
-					if(![device isInternal]){
-						[subviewsToBeAdded addObject:newCell];
-					} else{
-						//displays the iphone if hideInternal is off
-						if(!hideInternal){
-							[subviewsToBeAdded addObject:newCell];
-						}
-					}
+				//the iPhone/iPad itself only when hideInternal is off
+				if(!duplicate && (![device isInternal] || !hideInternal)){
+					[subviewsToBeAdded addObject:[[VaonDeviceBatteryCell alloc] initWithFrame:batteryHStackView.bounds device:device]];
 				}
 			}
 		}
