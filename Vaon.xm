@@ -76,12 +76,10 @@ int vaonViewCornerRadius = 17;
 CGFloat dockWidth;
 BOOL vaonViewIsInitialized = FALSE;
 
-//landscape handling. three to a page is the count the floating dock layout was asked for, not a
-//measurement: it is what fits beside a dock on a phone, and it is the same on every model
+//cells per page in the landscape module
 #define VAON_LANDSCAPE_CELLS_PER_PAGE 3
 
-//how far below the bottom edge the view is parked while hidden. it only has to clear the edge, so the
-//figure holds on any model. the entry and the exit must use the same one or the fly in starts partway
+//how far below the bottom edge the view parks while hidden. the fly in and the fly out share it
 #define VAON_OFFSCREEN_DROP 200
 
 BOOL hideInLandscape;
@@ -93,22 +91,14 @@ NSString *landscapeModuleSide;
 NSLayoutConstraint *vaonBottomConstraint;
 NSLayoutConstraint *vaonCenterXConstraint;
 NSLayoutConstraint *vaonWidthConstraint;
-CGFloat vaonViewHeightCaptured;
 
 //defined lower down but used by the fade helpers above them
 static void vaonApplyOrientationLayout(UIView *host);
 
 SBSwitcherAppSuggestionContentView *switcherContentView;
 
-//whether the switcher itself is laid out landscape, which is not the same question as how the phone is
-//being held. every orientation test in the tweak goes through here: the module, hideInLandscape and the
-//offsets all want the app in use, and a phone held sideways over the home screen is not that.
-//probed on 16.1.4 2026-09-10 at didMoveToWindow, with the phone held landscape throughout:
-//home screen 430x932, landscape app 932x430, portrait-locked app 430x932. the content view is the only
-//thing that turns. the window stays 430x932 because SpringBoard is portrait locked, the scene reports
-//portrait in all three, statusBarOrientation is 0, and UIDevice.orientation is 4 in all three because it
-//only reports the tilt. that makes bounds exactly the rule asked for: portrait on the home screen,
-//otherwise whatever the app in use is doing
+//whether the switcher is laid out landscape, which is not how the phone is held. the window, the scene
+//and UIDevice follow the tilt or stay portrait; only the content view turns with the app in use
 static BOOL vaonSwitcherIsLandscape(void) {
 	if(!switcherContentView) return FALSE;
 	CGRect b = switcherContentView.bounds;
@@ -234,9 +224,8 @@ static long long vaonToday(void) {
 	return (long long)([[NSDate date] timeIntervalSince1970] / 86400.0);
 }
 
-//knownDevices was read back from prefs for every device on every switcher open, and rewritten whole
-//each time a percentage moved. the records carry glyph PNGs, so hold the list for the pass instead:
-//reloaded when the pass starts, so changes made in the prefs app are still picked up, written once
+//the store is held for one pass: reloaded when it starts, so edits made in the prefs app are picked up,
+//and written once at the end. the records carry glyph PNGs
 static NSMutableArray *vaonKnownDevices;
 static BOOL vaonKnownDevicesDirty;
 
@@ -319,8 +308,7 @@ static NSMutableArray *vaonNormalizeKnownDevices(id stored, BOOL *changed) {
 		if([raw[@"glyph"] isKindOfClass:[NSData class]]) record[@"glyph"] = raw[@"glyph"];
 		if(record.count != raw.count) *changed = TRUE;
 		if(!record[@"identifier"]) continue;
-		//a record stored before 1.9.10 has no date. stamp it as seen now rather than expiring it, so the
-		//window starts here for everything already in the store and nothing is dropped on this pass
+		//a record with no date starts its window now rather than expiring on this pass
 		if(!record[@"lastSeen"]){
 			record[@"lastSeen"] = @(vaonToday());
 			*changed = TRUE;
@@ -1285,8 +1273,7 @@ void initBaseVaonView(UIView* view) {
 }
 
 void updateScrollWidthAndTouchPassthrough() {
-	//the result depends on the stack width and on what it is being measured against, and the second one
-	//now moves with the orientation, so both are cached or a rotation keeps the previous answer
+	//keyed on the page width too, which changes with orientation
 	static CGFloat lastWidth = -1;
 	static CGFloat lastLimit = -1;
 	CGFloat currentWidth = batteryHStackView.bounds.size.width;
@@ -1550,12 +1537,9 @@ void fadeViewIn(UIView *view, CGFloat duration){
 			view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height - 25 - view.frame.size.height, view.frame.size.width, view.frame.size.height);
 		}
 	}
-	//the entry used to inherit its starting point from the last fadeViewOut. vaonView is under
-	//autolayout and a frame written on it only survives to the next layout pass, so any pass between
-	//the close and this open put it back at rest and the fly in had nowhere to travel. place it here
-	//instead, in the same breath as the animation so no layout pass can come between the two.
-	//alpha is the test for "not already on screen or on its way in": the model value is 1 from the
-	//moment a fade in starts, so the 0.5s recheck landing mid-fade cannot snap it back down
+	//vaonView is under autolayout, so any layout pass since the close has put it back at rest: place the
+	//start of the fly in right before the animation. alpha is the model value, 1 once a fade in starts,
+	//so a recheck landing mid fade does not snap it back down
 	if(!landscapeActive && firstSlideIn && enableFlyInOut && view.alpha == 0){
 		view.frame = CGRectMake(view.frame.origin.x, mainScreen.size.height + VAON_OFFSCREEN_DROP, view.frame.size.width, view.frame.size.height);
 	}
@@ -1642,15 +1626,15 @@ static void vaonApplyOrientationLayout(UIView *host){
 		//positive moves right, which is what the horizontal slider already does
 		if([landscapeModuleSide isEqualToString:@"left"]) edge = -edge;
 		vaonCenterXConstraint.constant = edge + landscapeHorizontalOffset;
-		vaonBottomConstraint.constant = vaonViewHeightCaptured + landscapeVerticalOffset;
+		vaonBottomConstraint.constant = landscapeVerticalOffset;
 		return;
 	}
 	if(vaonWidthConstraint) vaonWidthConstraint.constant = vaonModuleWidth();
 	if(landscapeOffsetEnabled && landscape){
-		vaonBottomConstraint.constant = vaonViewHeightCaptured + landscapeVerticalOffset;
+		vaonBottomConstraint.constant = landscapeVerticalOffset;
 		vaonCenterXConstraint.constant = landscapeHorizontalOffset;
 	} else {
-		vaonBottomConstraint.constant = customVerticalOffsetEnabled ? (vaonViewHeightCaptured + customVerticalOffset) : -25;
+		vaonBottomConstraint.constant = customVerticalOffsetEnabled ? customVerticalOffset : -25;
 		vaonCenterXConstraint.constant = customHorizontalOffsetEnabled ? customHorizontalOffset : 0;
 	}
 }
@@ -1664,11 +1648,10 @@ static void vaonApplyOrientationLayout(UIView *host){
 		switcherContentView = self;
 		{
 			CGFloat mainScreen = [[UIScreen mainScreen] bounds].size.height;
-			//iOS 16: the old main switcher VC is gone, so dockWidth is never set there
+			//no dock view to measure, so take it from the screen
 			if(dockWidth == 0){
 				dockWidth = [[UIScreen mainScreen] bounds].size.width * 0.943;
 			}
-			//iOS 16: attach here for grid too, since the grid VC path no longer runs
 			if(!vaonViewIsInitialized){
 
 				vaonView = [[UIView alloc] init];
@@ -1684,8 +1667,6 @@ static void vaonApplyOrientationLayout(UIView *host){
 				[self addSubview:vaonView];
 
 
-				CGFloat vaonViewHeight = vaonView.frame.size.height;
-				vaonViewHeightCaptured = vaonViewHeight;
 
 				//keep the bottom/centerX constraints so their constants can be re-tuned per orientation
 				//without rebuilding the view; vaonApplyOrientationLayout sets the right constants
@@ -1694,8 +1675,7 @@ static void vaonApplyOrientationLayout(UIView *host){
 				vaonBottomConstraint.active = TRUE;
 				vaonCenterXConstraint = [vaonView.centerXAnchor constraintEqualToAnchor:self.centerXAnchor constant:0];
 				vaonCenterXConstraint.active = TRUE;
-				//kept like the bottom and centerX constraints: the landscape module re-tunes the width
-				//per orientation, and a constraint created and dropped here could not be reached again
+				//kept so the landscape module can re-tune it
 				vaonWidthConstraint = [vaonView.widthAnchor constraintEqualToConstant:vaonModuleWidth()];
 				vaonWidthConstraint.active = TRUE;
 				if(customHeightEnabled){
@@ -1729,26 +1709,14 @@ static void vaonApplyOrientationLayout(UIView *host){
 				}
 			}
 
-			if(self.window != nil && !suppressForLandscape){
-				// opening the app switcher from the home screen
-				if(currentAppDisplayID==nil && stockHidden){
-					if(enableDelay) {
-							[delayedFadeInTimer invalidate];
-							delayedFadeInTimer = [NSTimer scheduledTimerWithTimeInterval:fadeInDelay target:self selector:@selector(delayedFadeViewIn:) userInfo:nil repeats:NO];
-					} else {
-						fadeViewIn(vaonView, 0.4);
-					}
+			if(self.window != nil && !suppressForLandscape && stockHidden){
+				if(enableDelay){
+					[delayedFadeInTimer invalidate];
+					delayedFadeInTimer = [NSTimer scheduledTimerWithTimeInterval:fadeInDelay target:self selector:@selector(delayedFadeViewIn:) userInfo:nil repeats:NO];
 				} else {
-					if(stockHidden){
-						if(enableDelay) {
-							[delayedFadeInTimer invalidate];
-							delayedFadeInTimer = [NSTimer scheduledTimerWithTimeInterval:fadeInDelay target:self selector:@selector(delayedFadeViewIn:) userInfo:nil repeats:NO];
-						} else {
-							fadeViewIn(vaonView, 0.4);
-						}
-					}
+					fadeViewIn(vaonView, 0.4);
 				}
-			} 
+			}
 		}
 
 	}
@@ -1760,8 +1728,8 @@ static void vaonApplyOrientationLayout(UIView *host){
 		fadeViewIn(vaonView, 0.4);
 	}
 
-	//only claim touches that land on the battery strip while it can page; let everything else fall
-	//through so the switcher's home gesture is not hijacked by the overlay (fixes leave-anim drift)
+	//only claim touches on the battery strip while it can page, so the overlay does not take the
+		//switcher's home gesture
 	-(UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
 		if(vaonView && vaonShown && batteryScrollView && batteryScrollView.scrollEnabled){
 			CGPoint p = [self convertPoint:point toView:batteryScrollView];

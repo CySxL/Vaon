@@ -374,7 +374,7 @@
 			<key>label</key>
 			<string>Landscape (Beta)</string>
 			<key>footerText</key>
-			<string>For landscape with a floating dock: hide Vaon, park a narrow three-device module beside the dock, or nudge the full-width one aside with the offsets. Applied on the next switcher open; respring after changing.</string>
+			<string>For landscape with a floating dock: hide Vaon, park a narrow three-device module beside the dock, or nudge the full-width one aside with the offsets. Respring after changing.</string>
 		</dict>
 		<dict>
 			<key>cell</key>

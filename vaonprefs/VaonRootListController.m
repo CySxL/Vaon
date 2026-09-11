@@ -7,7 +7,6 @@
 //maybe check if the user is going back to the previous value a specifier was at before prompting the alert to repsring
 //make a new NSUserDefauls
 NSUserDefaults *prefs;
-NSArray *rootPreferenceKeys;
 
 //Function to check if an alias exists at a path
 BOOL aliasExistsAtPath(NSString *path) {
@@ -152,16 +151,6 @@ static void vaonRespring(void) {
 	//-(id)readPreferenceValue:(PSSpecifier*)specifier; use this to get the current modele selected and make a method that returns it and passes it into the pslinkcell in root.plist
 	-(id)init {
 		prefs = [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
-		rootPreferenceKeys = @[
-			@"isEnabled",
-			@"moduleSelection",
-			@"hideBackground",
-			@"enableFlyInOut",
-			@"enableDelay",
-			@"customHeightEnabled",
-			@"customWidthEnabled",
-			@"customVerticalOffsetEnabled"
-		];
 		return [super init];
 	}
 
@@ -307,9 +296,8 @@ static void vaonRespring(void) {
 		if([specifier.properties[@"key"] isEqualToString:@"hideInLandscape"]){
 			[self setLandscapeOffsetDependentsVisible:![value boolValue]];
 		}
-		//switches apply on the next switcher open; everything else needs a respring
-		if([rootPreferenceKeys containsObject:specifier.properties[@"key"]]
-			&& ![specifier.properties[@"cell"] isEqual:@"PSSwitchCell"]){
+		//everything needs a respring and the footer says so; the module choice rebuilds the view, so it asks
+		if([specifier.properties[@"key"] isEqualToString:@"moduleSelection"]){
 			[self prefsChangeAlert];
 		}
 	}
