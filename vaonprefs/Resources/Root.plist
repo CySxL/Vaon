@@ -398,7 +398,7 @@
 			<key>label</key>
 			<string>Full Width</string>
 			<key>footerText</key>
-			<string>Vaon centred above the stacked cards, as in portrait. Turn the offset on to move it in landscape.</string>
+			<string>Vaon centred above the stacked cards, as in portrait. Turn the offset on to move it in landscape. Turning it on turns the side module off.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -474,7 +474,7 @@
 			<key>label</key>
 			<string>Side Module</string>
 			<key>footerText</key>
-			<string>Three devices to a page in a narrow module parked against one side, beside a floating dock. While on, it takes the place of the full width layout in landscape.</string>
+			<string>Three devices to a page in a narrow module parked against one side, beside a floating dock. Turning it on turns the landscape offset off.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
