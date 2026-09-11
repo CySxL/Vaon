@@ -240,8 +240,16 @@ static NSString *vaonDeviceKey(NSString *identifier, NSString *name) {
 	if(![identifier isKindOfClass:[NSString class]]) identifier = nil;
 	if(![name isKindOfClass:[NSString class]]) name = nil;
 	if([identifier containsString:@":"]){
-		NSArray *parts = [[NSSet setWithArray:[identifier componentsSeparatedByString:@"-"]] allObjects];
-		return [[parts sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@"-"];
+		//asked for every record against every device in a pass, so the split and sort are kept
+		static NSMutableDictionary *macKeys;
+		if(!macKeys || macKeys.count > 256) macKeys = [NSMutableDictionary dictionary];
+		NSString *key = macKeys[identifier];
+		if(!key){
+			NSArray *parts = [[NSSet setWithArray:[identifier componentsSeparatedByString:@"-"]] allObjects];
+			key = [[parts sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@"-"];
+			macKeys[identifier] = key;
+		}
+		return key;
 	}
 	return [@"name:" stringByAppendingString:(name ?: identifier ?: @"")];
 }
@@ -552,12 +560,16 @@ static UIImage *vaonCustomGlyphForName(NSString *name) {
 	return nil;
 }
 
-//add cells for pinned devices that aren't currently connected, from persisted data
-static void vaonSeedPinnedDevices() {
+static NSArray *vaonAllBatteryCells();
+
+//add cells for pinned devices that aren't currently connected, from persisted data. true if any were added
+static BOOL vaonSeedPinnedDevices() {
 	NSArray *pinned = vaonPinnedIdentifiers();
-	if(pinned.count == 0) return;
+	if(pinned.count == 0) return FALSE;
 	NSArray *known = vaonKnownDeviceList();
-	if(known.count == 0) return;
+	if(known.count == 0) return FALSE;
+	NSArray *shown = vaonAllBatteryCells();
+	BOOL added = FALSE;
 	for(NSString *pid in pinned){
 		NSDictionary *record = nil;
 		for(NSDictionary *d in known){ if([d[@"identifier"] isEqualToString:pid]){ record = d; break; } }
@@ -565,7 +577,7 @@ static void vaonSeedPinnedDevices() {
 		NSString *rname = record[@"name"];
 		//skip if a cell with this identifier OR the same name (e.g. reconnected under another id) is shown
 		BOOL alreadyShown = FALSE;
-		for(VaonDeviceBatteryCell *sub in batteryHStackView.subviews){
+		for(VaonDeviceBatteryCell *sub in shown){
 			if([sub.deviceIdentifier isEqualToString:pid] || (rname.length && [sub.deviceName isEqualToString:rname])){ alreadyShown = TRUE; break; }
 		}
 		if(alreadyShown) continue;
@@ -576,7 +588,9 @@ static void vaonSeedPinnedDevices() {
 		[cell updateOutlineColor];
 		[cell updatePercentageColor];
 		[cell newAnimateOuterLayerToCurrentPercentage];
+		added = TRUE;
 	}
+	return added;
 }
 
 //rank of a cell within the pinned order (matched by identifier or name); non-pinned rank last
@@ -1324,11 +1338,11 @@ static void vaonRestoreBatteryPage() {
 }
 
 void updateBatteryView(){
-		vaonFlattenPages();
 		vaonReloadKnownDevices();
+		//cells stay in their pages; the pages are only laid out again when this pass adds a cell
+		NSArray *shownCells = vaonAllBatteryCells();
+		BOOL cellsAdded = FALSE;
 
-
-		//update list of bluetooth devices
 		connectedBluetoothDevices = [[%c(BCBatteryDeviceController) _sharedPowerSourceController] connectedDevices];
 		NSMutableArray *subviewsToBeAdded = [[NSMutableArray alloc] init];
 		//names BatteryCenter already covers, so the Bluetooth pass below does not double them up
@@ -1346,12 +1360,12 @@ void updateBatteryView(){
 				
 
 				//skip devices already shown; dedup against the current cells, not a growing name list
-				for(VaonDeviceBatteryCell *subview in batteryHStackView.subviews){
+				for(VaonDeviceBatteryCell *subview in shownCells){
 					if([subview.deviceName isEqualToString:newCell.deviceName] || [subview.deviceIdentifier isEqualToString:newCell.deviceIdentifier]){
 						duplicate = TRUE;
 					}
 				}
-				if(![batteryHStackView.subviews containsObject:newCell] && !duplicate){
+				if(!duplicate){
 					//add all devices that are not the iPhone/iPad
 					if(![device isInternal]){
 						[subviewsToBeAdded addObject:newCell];
@@ -1378,7 +1392,7 @@ void updateBatteryView(){
 			vaonRecordBluetoothDevice(btDevice, percent);
 
 			BOOL duplicate = FALSE;
-			for(VaonDeviceBatteryCell *subview in batteryHStackView.subviews){
+			for(VaonDeviceBatteryCell *subview in shownCells){
 				if([subview.deviceIdentifier isEqualToString:btAddress] || (btName.length && [subview.deviceName isEqualToString:btName])){ duplicate = TRUE; break; }
 			}
 			for(VaonDeviceBatteryCell *pending in subviewsToBeAdded){
@@ -1396,6 +1410,7 @@ void updateBatteryView(){
 
 			if(subview.device || subview.bluetoothDevice){
 				[batteryHStackView addArrangedSubview:subview];
+				cellsAdded = TRUE;
 				subview.alpha = 0;
 				//fade in new devices
 				[UIView animateWithDuration:0.3 animations:^ {
@@ -1415,7 +1430,7 @@ void updateBatteryView(){
 
 
 		//update device view properties
-		for(VaonDeviceBatteryCell *subview in batteryHStackView.subviews){
+		for(VaonDeviceBatteryCell *subview in vaonAllBatteryCells()){
 
 			BOOL adoptedAccessory = FALSE;
 			if(!subview.device && !subview.bluetoothDevice) {
@@ -1502,11 +1517,11 @@ void updateBatteryView(){
 			}
 		}
 
-		vaonSeedPinnedDevices();
-		vaonLayoutPages();
-
-		//restore the page for this open: last-viewed page, or page 0
-		vaonRestoreBatteryPage();
+		if(vaonSeedPinnedDevices()) cellsAdded = TRUE;
+		if(cellsAdded){
+			vaonLayoutPages();
+			vaonRestoreBatteryPage();
+		}
 
 		if(vaonKnownDevices) vaonExpireKnownDevices(vaonKnownDevices);
 		vaonFlushKnownDevices();
