@@ -245,6 +245,8 @@ static NSArray *vaonLandscapeIDs(void) {
 			id old = [prefs objectForKey:pair[0]];
 			if(![prefs objectForKey:pair[1]] && [old isKindOfClass:[NSNumber class]]) [prefs setObject:old forKey:pair[1]];
 		}
+		//the two landscape switches are exclusive, and with both on the tweak already uses the module
+		if(vaonPrefBool(@"landscapeOffsetEnabled", NO) && vaonPrefBool(@"landscapeModuleEnabled", NO)) [prefs setBool:NO forKey:@"landscapeOffsetEnabled"];
 		return [super init];
 	}
 
@@ -409,7 +411,15 @@ static NSArray *vaonLandscapeIDs(void) {
 		}
 		NSString *key = specifier.properties[@"key"];
 		if(value && [@[@"hideInLandscape", @"landscapeOffsetEnabled", @"landscapeModuleEnabled"] containsObject:key]){
-			[self refreshLandscapeSpecifiers:@{key: value}];
+			NSMutableDictionary *changed = [NSMutableDictionary dictionaryWithObject:value forKey:key];
+			NSString *other = @{@"landscapeOffsetEnabled": @"landscapeModuleEnabled", @"landscapeModuleEnabled": @"landscapeOffsetEnabled"}[key];
+			PSSpecifier *otherSpecifier = other ? [self specifierForID:other] : nil;
+			if(otherSpecifier && [value boolValue] && vaonPrefBool(other, NO)){
+				[super setPreferenceValue:@NO specifier:otherSpecifier];
+				[self reloadSpecifier:otherSpecifier animated:YES];
+				changed[other] = @NO;
+			}
+			[self refreshLandscapeSpecifiers:changed];
 		}
 		//everything needs a respring and the footer says so; the module choice rebuilds the view, so it asks
 		if([specifier.properties[@"key"] isEqualToString:@"moduleSelection"]){
