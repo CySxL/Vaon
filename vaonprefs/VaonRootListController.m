@@ -8,6 +8,12 @@
 //make a new NSUserDefauls
 NSUserDefaults *prefs;
 
+//a switch nobody has touched is unset, and reads as its plist default rather than as off
+static BOOL vaonPrefBool(NSString *key, BOOL fallback) {
+	id value = [prefs objectForKey:key];
+	return [value isKindOfClass:[NSNumber class]] ? [value boolValue] : fallback;
+}
+
 //Function to check if an alias exists at a path
 BOOL aliasExistsAtPath(NSString *path) {
     NSURL *url = [NSURL fileURLWithPath:path];
@@ -171,11 +177,11 @@ static void vaonRespring(void) {
 			}
 			_swipeDependentSpecifiers = deps;
 			_landscapeOffsetSpecifiers = landDeps;
-			if(![[prefs objectForKey:@"showPageDots"] boolValue]){
+			if(!vaonPrefBool(@"showPageDots", YES)){
 				[all removeObjectsInArray:deps];
 			}
 			//the landscape offset controls only apply when Vaon is not hidden in landscape
-			if([[prefs objectForKey:@"hideInLandscape"] boolValue]){
+			if(vaonPrefBool(@"hideInLandscape", NO)){
 				[all removeObjectsInArray:landDeps];
 			}
 			_specifiers = all;
@@ -708,7 +714,7 @@ static void vaonRespring(void) {
 			double minV = [specifier.properties[@"min"] doubleValue];
 			double maxV = [specifier.properties[@"max"] doubleValue];
 			id cur = [d objectForKey:specifier.properties[@"key"]];
-			double val = cur ? [cur doubleValue] : [specifier.properties[@"default"] doubleValue];
+			double val = [cur isKindOfClass:[NSNumber class]] ? [cur doubleValue] : [specifier.properties[@"default"] doubleValue];
 			if(val < minV) val = minV;
 			if(val > maxV) val = maxV;
 			_valueLabel = [[UILabel alloc] init];
