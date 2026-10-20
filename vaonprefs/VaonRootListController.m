@@ -87,11 +87,38 @@ static void vaonRespring(void) {
 #endif
 
 static const CGFloat kVaonIconSide = 80.0;
+static const CGFloat kVaonHeaderGap = 16.0;
+//"Vaon" fits beside the icon at 34 pt on any phone
+static const CGFloat kVaonNameSize = 34.0;
+static const CGFloat kVaonVersionSize = 15.0;
+static const CGFloat kVaonSchemeSize = 13.0;
+static const CGFloat kVaonNameToVersion = 24.0;
+static const CGFloat kVaonVersionToScheme = 19.0;
+
+static UIFont *vaonHeaderNameFont(CGFloat size) {
+	UIFontDescriptor *bold = [[UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleLargeTitle] fontDescriptorWithSymbolicTraits:UIFontDescriptorTraitBold];
+	return [UIFont fontWithDescriptor:bold size:size];
+}
+
+//the name's baseline against the icon's middle, with the block centred on it, so a larger name grows upward only
+static CGFloat vaonNameBaselineOffset(CGFloat scale) {
+	UIFont *name = vaonHeaderNameFont(kVaonNameSize * scale);
+	UIFont *scheme = [UIFont systemFontOfSize:kVaonSchemeSize * scale];
+	CGFloat height = name.ascender + (kVaonNameToVersion + kVaonVersionToScheme) * scale - scheme.descender;
+	return name.ascender - height / 2.0;
+}
 
 @interface VaonHeaderCell : PSTableCell
 @end
 
-@implementation VaonHeaderCell
+@implementation VaonHeaderCell {
+	UILabel *_name;
+	UILabel *_version;
+	UILabel *_scheme;
+	UIStackView *_text;
+	NSLayoutConstraint *_nameBaseline;
+	CGFloat _scale;
+}
 
 	-(instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)identifier specifier:(PSSpecifier *)specifier {
 		self = [super initWithStyle:style reuseIdentifier:identifier specifier:specifier];
@@ -105,25 +132,67 @@ static const CGFloat kVaonIconSide = 80.0;
 		icon.layer.cornerRadius = kVaonIconSide * 0.225;
 		[self.contentView addSubview:icon];
 
-		UILabel *version = [[UILabel alloc] init];
-		version.text = @"Version " PACKAGE_VERSION "\n" PACKAGE_SCHEME;
-		version.numberOfLines = 2;
-		version.font = [UIFont systemFontOfSize:14.0];
-		version.textColor = [UIColor systemGrayColor];
-		version.textAlignment = NSTextAlignmentCenter;
-		version.translatesAutoresizingMaskIntoConstraints = NO;
-		[self.contentView addSubview:version];
+		_name = [[UILabel alloc] init];
+		_name.text = @"Vaon";
+		//the icon's orange background, in both modes
+		_name.textColor = [UIColor colorWithRed:0xf6 / 255.0 green:0xa1 / 255.0 blue:0x53 / 255.0 alpha:1.0];
 
+		_version = [[UILabel alloc] init];
+		_version.text = @"Version " PACKAGE_VERSION;
+		_version.textColor = [UIColor systemGrayColor];
+
+		_scheme = [[UILabel alloc] init];
+		_scheme.text = @PACKAGE_SCHEME.capitalizedString;
+		_scheme.textColor = [UIColor systemGrayColor];
+
+		//baseline to baseline, so the large name's own leading does not push the two lines under it away
+		_text = [[UIStackView alloc] initWithArrangedSubviews:@[_name, _version, _scheme]];
+		_text.axis = UILayoutConstraintAxisVertical;
+		_text.alignment = UIStackViewAlignmentLeading;
+		_text.baselineRelativeArrangement = YES;
+		_text.translatesAutoresizingMaskIntoConstraints = NO;
+		[self.contentView addSubview:_text];
+		_nameBaseline = [_name.firstBaselineAnchor constraintEqualToAnchor:icon.centerYAnchor];
+		[self applyTextScale:1.0];
+
+		//icon and text centred as one block, never past the leading margin
+		UILayoutGuide *margins = self.contentView.layoutMarginsGuide;
+		UILayoutGuide *block = [[UILayoutGuide alloc] init];
+		[self.contentView addLayoutGuide:block];
+		NSLayoutConstraint *centred = [block.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor];
+		centred.priority = UILayoutPriorityDefaultHigh;
 		[NSLayoutConstraint activateConstraints:@[
 			[icon.widthAnchor constraintEqualToConstant:kVaonIconSide],
 			[icon.heightAnchor constraintEqualToConstant:kVaonIconSide],
-			[icon.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
-			[icon.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10.0],
-			[version.topAnchor constraintEqualToAnchor:icon.bottomAnchor constant:8.0],
-			[version.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
-			[version.widthAnchor constraintEqualToAnchor:self.contentView.widthAnchor]
+			[block.leadingAnchor constraintEqualToAnchor:icon.leadingAnchor],
+			[block.trailingAnchor constraintEqualToAnchor:_text.trailingAnchor],
+			[icon.leadingAnchor constraintGreaterThanOrEqualToAnchor:margins.leadingAnchor],
+			centred,
+			[icon.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+			[_text.leadingAnchor constraintEqualToAnchor:icon.trailingAnchor constant:kVaonHeaderGap],
+			_nameBaseline
 		]];
 		return self;
+	}
+
+	//fonts and spacing scale together so the three lines keep their proportions; the icon never scales
+	-(void)applyTextScale:(CGFloat)scale {
+		if(scale == _scale) return;
+		_scale = scale;
+		_name.font = vaonHeaderNameFont(kVaonNameSize * scale);
+		_version.font = [UIFont systemFontOfSize:kVaonVersionSize * scale];
+		_scheme.font = [UIFont systemFontOfSize:kVaonSchemeSize * scale];
+		[_text setCustomSpacing:kVaonNameToVersion * scale afterView:_name];
+		[_text setCustomSpacing:kVaonVersionToScheme * scale afterView:_version];
+		_nameBaseline.constant = vaonNameBaselineOffset(scale);
+	}
+
+	//full size wherever the name fits beside the icon, otherwise the whole block shrinks by the overflow
+	-(void)layoutSubviews {
+		CGFloat available = CGRectGetWidth(self.contentView.layoutMarginsGuide.layoutFrame) - kVaonIconSide - kVaonHeaderGap;
+		CGFloat natural = [_name.text sizeWithAttributes:@{NSFontAttributeName: vaonHeaderNameFont(kVaonNameSize)}].width;
+		[self applyTextScale:(available > 0 && natural > available) ? available / natural : 1.0];
+		[super layoutSubviews];
 	}
 
 	//the row is the page's heading, not a setting: no separator, no grouped background, no selection
