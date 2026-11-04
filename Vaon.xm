@@ -1651,6 +1651,19 @@ static void vaonApplyOrientationLayout(UIView *host){
 	}
 }
 
+//set when a SquidGesture action hid vaon over an open switcher, so Control Center closing can bring it back
+static BOOL vaonHiddenByAction = NO;
+
+//re-show vaon after a leave that did not leave: same front app and the switcher view still in a
+//window. neither test works alone
+static void vaonReshowIfSwitcherUp(void){
+	NSString *nowID = vaonFrontAppID();
+	BOOL sameFront = (nowID == vaonOpenFrontApp) || [nowID isEqualToString:vaonOpenFrontApp];
+	if(sameFront && switcherContentView && switcherContentView.window != nil && !vaonShown && vaonView && !vaonView.hidden){
+		fadeViewIn(vaonView, 0.25);
+	}
+}
+
 %hook SBSwitcherAppSuggestionContentView
 
 	//creates vaonview for normal/non-grid app switcher
@@ -1702,6 +1715,7 @@ static void vaonApplyOrientationLayout(UIView *host){
 		
 		{
 			vaonOpenFrontApp = [vaonFrontAppID() copy];
+			vaonHiddenByAction = NO;
 
 
 
@@ -1764,16 +1778,9 @@ static void vaonApplyOrientationLayout(UIView *host){
 		%orig;
 		if(vaonView && vaonShown){
 			fadeViewOut(vaonView, 0.3);
-			//if the leave gesture is cancelled and the switcher stays up, vaon would be left hidden.
-			//after the transition settles, re-show it only when the switcher is still on screen
+			//a cancelled leave gesture keeps the switcher up
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-				//a cancelled leave keeps the same frontmost app and the switcher on screen; if a
-				//different app was launched (or we went home), skip so vaon does not flash back in
-				NSString *nowID = vaonFrontAppID();
-				BOOL sameFront = (nowID == vaonOpenFrontApp) || [nowID isEqualToString:vaonOpenFrontApp];
-				if(sameFront && switcherContentView && switcherContentView.window != nil && !vaonShown && vaonView && !vaonView.hidden){
-					fadeViewIn(vaonView, 0.25);
-				}
+				vaonReshowIfSwitcherUp();
 			});
 		}
 	}
@@ -1801,9 +1808,24 @@ static void vaonApplyOrientationLayout(UIView *host){
 %hook SFActivityAction
 	-(void)invokeActivity:(id)arg1 withEvent:(id)arg2 {
 		if(vaonView){
+			if(vaonShown || vaonView.alpha > 0) vaonHiddenByAction = YES;
 			fadeViewOut(vaonView, 0.0);
 		}
 		%orig;
+	}
+%end
+%end
+
+
+//SquidGesture's Control Center action keeps the switcher up; bring vaon back once it is dismissed
+%group VaonSquidControlCenter
+%hook SBControlCenterController
+	-(void)_didDismiss {
+		%orig;
+		if(vaonHiddenByAction){
+			vaonHiddenByAction = NO;
+			vaonReshowIfSwitcherUp();
+		}
 	}
 %end
 %end
@@ -1966,6 +1988,9 @@ void updateSettings(){
 		//only hook SquidGesture Pro's action class if it is actually installed
 		if(NSClassFromString(@"SFActivityAction")){
 			%init(VaonSquidGestureCompat);
+			if(NSClassFromString(@"SBControlCenterController")){
+				%init(VaonSquidControlCenter);
+			}
 		}
 
 		//BluetoothManager reaches bluetoothd asynchronously, so build it well before the first switcher
