@@ -2,6 +2,7 @@
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
 #import <dlfcn.h>
+#import <objc/message.h>
 
 
 NSUserDefaults *prefs;
@@ -69,7 +70,15 @@ id vaonScrollDelegate;
 UIVisualEffectView *vaonBlurView;
 UIBlurEffect *blurEffect;
 
-int vaonViewCornerRadius = 17;
+//17 pt on a 55 pt display corner (iPhone 14 Pro Max), kept in proportion on other screens.
+//home button screens report 0 and keep the 17
+static CGFloat vaonViewCornerRadius(void) {
+	UIScreen *screen = [UIScreen mainScreen];
+	SEL sel = NSSelectorFromString(@"_displayCornerRadius");
+	if(![screen respondsToSelector:sel]) return 17.0;
+	CGFloat display = ((CGFloat (*)(id, SEL))objc_msgSend)(screen, sel);
+	return display > 0 ? display * (17.0 / 55.0) : 17.0;
+}
 
 CGFloat dockWidth;
 BOOL vaonViewIsInitialized = FALSE;
@@ -1288,7 +1297,8 @@ void initBaseVaonView(UIView* view) {
 		blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterialLight];
 	}
 	view.clipsToBounds = TRUE;
-	view.layer.cornerRadius = vaonViewCornerRadius;
+	view.layer.cornerRadius = vaonViewCornerRadius();
+	view.layer.cornerCurve = kCACornerCurveContinuous;
 	view.alpha = 0;
 	view.backgroundColor = [UIColor clearColor];
 
