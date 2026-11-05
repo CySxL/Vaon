@@ -76,7 +76,7 @@ CGFloat dockWidth;
 BOOL vaonViewIsInitialized = FALSE;
 
 //cells per page in the landscape module
-#define VAON_LANDSCAPE_CELLS_PER_PAGE 3
+#define VAON_LANDSCAPE_CELLS_PER_PAGE 2
 
 //how far below the bottom edge the view parks while hidden. the fly in and the fly out share it
 #define VAON_OFFSCREEN_DROP 200

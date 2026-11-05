@@ -484,7 +484,7 @@
 			<key>label</key>
 			<string>Side Module</string>
 			<key>footerText</key>
-			<string>Three devices to a page in a narrow module parked against one side, beside a floating dock. Turning it on turns the landscape offset off.</string>
+			<string>Two devices to a page in a narrow module parked against one side, beside a floating dock. Turning it on turns the landscape offset off.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
