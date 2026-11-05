@@ -1,6 +1,6 @@
 Package: com.atar13.vaon
 Name: Vaon
-Version: 2.1.3
+Version: 2.1.4
 Architecture: iphoneos-arm
 Description: Shows the battery of Bluetooth accessories in the app switcher.
  * keep disconnected & pinned devices on show.
