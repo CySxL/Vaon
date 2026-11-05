@@ -2,7 +2,6 @@
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
 #import <dlfcn.h>
-// #import <Foundation/Foundation.h>
 
 
 NSUserDefaults *prefs;
@@ -2054,14 +2053,4 @@ void updateSettings(){
 			vaonConnectedBluetoothAccessories();
 		});
 	}
-/**
-Additional modules:
-favorite contacts or an option for recents
-device batteries
-favorited apps
-music player when you 
-countdown 
-airpod pro transparency and noise cancellation
-weather/AQI view that's similar to battery view
-**/
 }
