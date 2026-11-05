@@ -132,7 +132,7 @@ static CGFloat vaonNameBaselineOffset(CGFloat scale) {
 		self = [super initWithStyle:style reuseIdentifier:identifier specifier:specifier];
 		if(!self) return nil;
 
-		UIImage *image = [UIImage imageNamed:@"images/vaon/vaonIcon" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
+		UIImage *image = [UIImage imageNamed:@"images/vaon/vaonHeader" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
 		UIImageView *icon = [[UIImageView alloc] initWithImage:image];
 		icon.translatesAutoresizingMaskIntoConstraints = NO;
 		icon.clipsToBounds = YES;
@@ -142,8 +142,12 @@ static CGFloat vaonNameBaselineOffset(CGFloat scale) {
 
 		_name = [[UILabel alloc] init];
 		_name.text = @"Vaon";
-		//the icon's orange background, in both modes
-		_name.textColor = [UIColor colorWithRed:0xf6 / 255.0 green:0xa1 / 255.0 blue:0x53 / 255.0 alpha:1.0];
+		//the icon's moss green, and its peach background in dark mode, where the green is 2.9:1 on black
+		_name.textColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits) {
+			return traits.userInterfaceStyle == UIUserInterfaceStyleDark
+				? [UIColor colorWithRed:0xfa / 255.0 green:0xcb / 255.0 blue:0xc6 / 255.0 alpha:1.0]
+				: [UIColor colorWithRed:0x46 / 255.0 green:0x5c / 255.0 blue:0x47 / 255.0 alpha:1.0];
+		}];
 
 		_version = [[UILabel alloc] init];
 		_version.text = @"Version " PACKAGE_VERSION;

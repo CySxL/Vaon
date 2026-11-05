@@ -1,5 +1,3 @@
-//credit to Dogbert for the icon
-
 #import "Vaon.h"
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
