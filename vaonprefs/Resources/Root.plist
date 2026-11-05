@@ -8,7 +8,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>All changes require a respring.</string>
+			<string>Enabled and Module apply after a respring. Everything else applies the next time the app switcher opens.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -384,7 +384,7 @@
 			<key>label</key>
 			<string>Landscape (Beta)</string>
 			<key>footerText</key>
-			<string>Hide Vaon in landscape, or choose how it sits there. Respring after changing.</string>
+			<string>Hide Vaon in landscape, or choose how it sits there.</string>
 		</dict>
 		<dict>
 			<key>cell</key>

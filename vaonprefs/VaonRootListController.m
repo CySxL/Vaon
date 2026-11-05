@@ -1,4 +1,5 @@
 #include "VaonRootListController.h"
+#import <notify.h>
 
 #if THEOS_PACKAGE_SCHEME_ROOTHIDE
 #import <roothide.h>
@@ -59,6 +60,11 @@ static NSArray *vaonNormalizedPins(id stored) {
 		if([pid isKindOfClass:[NSString class]]) [pins addObject:pid];
 	}
 	return pins;
+}
+
+//the tweak rebuilds its view from the stored values on the next switcher open after this
+static void vaonPostChange(void) {
+	notify_post("com.atar13.vaonprefs/changed");
 }
 
 //respring by killing backboardd, resolving killall's path per jailbreak type
@@ -260,6 +266,7 @@ static BOOL vaonGateOpen(PSSpecifier *row, id value) {
 
 	-(void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
 		[super setPreferenceValue:value specifier:specifier];
+		vaonPostChange();
 		NSString *key = [specifier propertyForKey:@"key"];
 		if(![key isKindOfClass:[NSString class]]) return;
 		PSSpecifier *previous = specifier;
@@ -361,6 +368,7 @@ static UIImage *vaonSwatch(UIColor *color) {
 		CGFloat rgba[4] = {0, 0, 0, 0};
 		if(![color getRed:&rgba[0] green:&rgba[1] blue:&rgba[2] alpha:&rgba[3]]) return;
 		[vaonStore() setObject:vaonHexString(rgba) forKey:key];
+		vaonPostChange();
 		[_picking setProperty:vaonSwatch(vaonRowColor(_picking)) forKey:@"iconImage"];
 		[self reloadSpecifier:_picking animated:NO];
 	}
@@ -656,7 +664,7 @@ static NSArray *vaonLandscapeIDs(void) {
 			}
 			[self refreshLandscapeSpecifiers:changed];
 		}
-		//everything needs a respring and the footer says so; the module choice rebuilds the view, so it asks
+		//the module choice decides which views exist, so it still asks for a respring
 		if([specifier.properties[@"key"] isEqualToString:@"moduleSelection"]){
 			[self prefsChangeAlert];
 		}
@@ -847,6 +855,7 @@ static NSArray *vaonLandscapeIDs(void) {
 		NSUserDefaults *d = [self store];
 		[d setBool:sw.on forKey:@"expireUnseenDevices"];
 		[d synchronize];
+		vaonPostChange();
 	}
 
 	-(UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -1099,6 +1108,7 @@ static NSArray *vaonLandscapeIDs(void) {
 		NSUserDefaults *d = [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
 		[d setObject:@(v) forKey:self.specifier.properties[@"key"]];
 		[d synchronize];
+		vaonPostChange();
 	}
 
 @end

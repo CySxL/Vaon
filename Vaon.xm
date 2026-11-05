@@ -224,16 +224,18 @@ static CGFloat vaonBaselineInLabel(UIFont *font, CGFloat labelHeight) {
 	return (labelHeight - font.lineHeight) / 2 + font.ascender;
 }
 
-//how far to lift the infinity sign so its centre line meets the digits beside it. the fonts come from
-//prefs read once at load, so this only ever needs measuring once
+//how far to lift the infinity sign so its centre line meets the digits beside it. measured once per
+//font size; the view rebuild after a settings change clears it
+static CGFloat vaonInfinityNudge;
+static BOOL vaonInfinityNudgeMeasured = FALSE;
 static CGFloat vaonInfinitySignNudge(UIFont *base, UIFont *large, CGFloat labelHeight) {
-	static CGFloat nudge;
-	static BOOL measured = FALSE;
-	if(!measured){
+	CGFloat nudge = vaonInfinityNudge;
+	if(!vaonInfinityNudgeMeasured){
 		CGFloat digitCentre = vaonBaselineInLabel(base, labelHeight) - vaonInkCenterAboveBaseline(@"0", base);
 		CGFloat signCentre = vaonBaselineInLabel(large, labelHeight) - vaonInkCenterAboveBaseline(@"∞", large);
 		nudge = digitCentre - signCentre;
-		measured = TRUE;
+		vaonInfinityNudge = nudge;
+		vaonInfinityNudgeMeasured = TRUE;
 	}
 	return nudge;
 }
@@ -1302,10 +1304,12 @@ void initBaseVaonView(UIView* view) {
 	[view addSubview:vaonBlurView];
 }
 
+//keyed on the page width too, which changes with orientation. reset with the view, since a rebuilt view
+//of the same width would otherwise keep the new views' default touch handling
+static CGFloat lastWidth = -1;
+static CGFloat lastLimit = -1;
+
 void updateScrollWidthAndTouchPassthrough() {
-	//keyed on the page width too, which changes with orientation
-	static CGFloat lastWidth = -1;
-	static CGFloat lastLimit = -1;
 	CGFloat currentWidth = batteryHStackView.bounds.size.width;
 	CGFloat limit = vaonModuleWidth();
 	if(currentWidth == lastWidth && limit == lastLimit) return;
@@ -1664,6 +1668,39 @@ static void vaonReshowIfSwitcherUp(void){
 	}
 }
 
+void updateSettings();
+
+//set from the settings page through a Darwin notification; the view is rebuilt on the next open
+static BOOL vaonSettingsStale = NO;
+
+static void vaonSettingsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+	vaonSettingsStale = YES;
+}
+
+//drop the view and everything measured against it, so the next open builds it as after a respring
+static void vaonTearDownView(void) {
+	[delayedFadeInTimer invalidate];
+	delayedFadeInTimer = nil;
+	[vaonView removeFromSuperview];
+	vaonView = nil;
+	vaonBlurView = nil;
+	batteryScrollView = nil;
+	batteryHStackView = nil;
+	batteryPageControl = nil;
+	vaonBottomConstraint = nil;
+	vaonCenterXConstraint = nil;
+	vaonWidthConstraint = nil;
+	lastWidth = -1;
+	lastLimit = -1;
+	vaonInfinityNudgeMeasured = FALSE;
+	currentBatteryPage = 0;
+	firstSlideIn = false;
+	stockHidden = TRUE;
+	vaonShown = FALSE;
+	vaonHiddenByAction = NO;
+	vaonViewIsInitialized = FALSE;
+}
+
 %hook SBSwitcherAppSuggestionContentView
 
 	//creates vaonview for normal/non-grid app switcher
@@ -1671,6 +1708,17 @@ static void vaonReshowIfSwitcherUp(void){
 		%orig;
 		if([selectedModule isEqual:@"none"]) return;
 		switcherContentView = self;
+		//only while nothing is on screen or fading in. Enabled and Module decide which hooks and views
+		//exist, so they keep the values read at load until a respring
+		if(vaonSettingsStale && !vaonShown && (!vaonView || vaonView.alpha == 0)){
+			vaonSettingsStale = NO;
+			BOOL enabled = isEnabled;
+			NSString *module = selectedModule;
+			updateSettings();
+			isEnabled = enabled;
+			selectedModule = module;
+			vaonTearDownView();
+		}
 		{
 			CGFloat mainScreen = [[UIScreen mainScreen] bounds].size.height;
 			//no dock view to measure, so take it from the screen
@@ -1992,6 +2040,8 @@ void updateSettings(){
 				%init(VaonSquidControlCenter);
 			}
 		}
+
+		CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, vaonSettingsChanged, CFSTR("com.atar13.vaonprefs/changed"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
 
 		//BluetoothManager reaches bluetoothd asynchronously, so build it well before the first switcher
 		//open or the accessory list comes back empty. deferred so SpringBoard finishes its own setup
