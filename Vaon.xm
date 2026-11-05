@@ -1845,7 +1845,7 @@ static void vaonTearDownView(void) {
 %group iOS16FloatingDock
 %hook SBHIconManager
 	-(void)iconTapped:(id)arg1 {
-		if(vaonView){
+		if(vaonView && (vaonShown || vaonView.alpha > 0)){
 			fadeViewOut(vaonView, 0.0);
 		}
 		%orig;
