@@ -1591,7 +1591,8 @@ void fadeViewIn(UIView *view, CGFloat duration){
 				}
 			}
 		}
-		firstSlideIn = true;
+		//a fade in cut short by a teardown completes after the rebuild; leave the new view's flag alone
+		if(view == vaonView) firstSlideIn = true;
 	}];
 }
 
@@ -1706,6 +1707,12 @@ static void vaonTearDownView(void) {
 		%orig;
 		if([selectedModule isEqual:@"none"]) return;
 		switcherContentView = self;
+		//the cancelled leave recheck can fade vaon back in just before a close back to the same app
+		//detaches the switcher; clear it here so the stale branch below is not held off
+		if(self.window == nil && vaonView && (vaonShown || vaonView.alpha > 0)){
+			fadeViewOut(vaonView, 0);
+			stockHidden = TRUE;
+		}
 		//only while nothing is on screen or fading in. Enabled and Module decide which hooks and views
 		//exist, so they keep the values read at load until a respring
 		if(vaonSettingsStale && !vaonShown && (!vaonView || vaonView.alpha == 0)){
