@@ -732,8 +732,7 @@ static NSArray *vaonLandscapeIDs(void) {
 
 	//upstream's two authors keep their own links and pictures; the fork's row comes last
 	-(void)addCreditsTo:(NSMutableArray *)specifiers {
-		PSSpecifier *credits = [PSSpecifier emptyGroupSpecifier];
-		[credits setProperty:@"Credits" forKey:@"label"];
+		PSSpecifier *credits = [PSSpecifier preferenceSpecifierNamed:@"Credits" target:self set:NULL get:NULL detail:nil cell:PSGroupCell edit:nil];
 		[credits setProperty:@"© CySxL 2026" forKey:@"footerText"];
 		[specifiers addObject:credits];
 		//name, subtitle, action, picture; a row with no picture is a branch of the row above it
