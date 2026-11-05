@@ -8,7 +8,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Custom Connected Device Color Mode</string>
+			<string>Connected</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -50,7 +50,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Custom Disconnected Device Color Mode</string>
+			<string>Disconnected</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -92,7 +92,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Custom Low Power Color Mode</string>
+			<string>Low Power Mode</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -134,7 +134,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
             <key>label</key>
-            <string>Custom Low Battery Color Mode</string>
+            <string>Low Battery</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -176,9 +176,9 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
             <key>label</key>
-            <string>Custom Charging Color Mode</string>
+            <string>Charging</string>
 			<key>footerText</key>
-			<string>Pulsate charging devices must be enabled in battery configuration settings</string>
+			<string>The charging color shows only while Pulsate While Charging is on.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -220,7 +220,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Connected Device Without Battery Info Color Mode</string>
+			<string>Connected Without Battery</string>
 			<key>footerText</key>
 			<string>Devices that report no battery level, such as speakers and soundbars. Their ring is drawn full and pulses while connected.</string>
 		</dict>
@@ -264,7 +264,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Disconnected Device Without Battery Info Color Mode</string>
+			<string>Disconnected Without Battery</string>
 		</dict>
 		<dict>
 			<key>cell</key>

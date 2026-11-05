@@ -607,7 +607,7 @@ static UIImage *vaonSwatch(UIColor *color) {
 	}
 
 	-(void)askBeforeRespring {
-			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Are you sure you want to respring?" message:@"" preferredStyle:UIAlertControllerStyleAlert];
+			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Respring" message:@"SpringBoard restarts." preferredStyle:UIAlertControllerStyleAlert];
 			UIAlertAction* respringAction = [UIAlertAction actionWithTitle:@"Respring" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
 				[self respring];
 			}];
@@ -643,7 +643,7 @@ static UIImage *vaonSwatch(UIColor *color) {
 	}
 
 	-(void)askBeforeRespring {
-			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Are you sure you want to respring?" message:@"" preferredStyle:UIAlertControllerStyleAlert];
+			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Respring" message:@"SpringBoard restarts." preferredStyle:UIAlertControllerStyleAlert];
 			UIAlertAction* respringAction = [UIAlertAction actionWithTitle:@"Respring" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
 				[self respring];
 			}];
@@ -810,7 +810,7 @@ static NSArray *vaonLandscapeIDs(void) {
 		vaonRespring();
 	}
 	-(void)askBeforeRespring {
-		UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Are you sure you want to respring?" message:@"" preferredStyle:UIAlertControllerStyleAlert];
+		UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Respring" message:@"SpringBoard restarts." preferredStyle:UIAlertControllerStyleAlert];
 		UIAlertAction* respringAction = [UIAlertAction actionWithTitle:@"Respring" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
 			[self respring];
 		}];
@@ -859,7 +859,7 @@ static NSArray *vaonLandscapeIDs(void) {
 	}
 
 	-(void)prefsChangeAlert {
-			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Respring is required" message:@"To apply this change you must respring your device" preferredStyle:UIAlertControllerStyleAlert];
+			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Respring Required" message:@"Module applies after a respring." preferredStyle:UIAlertControllerStyleAlert];
 			UIAlertAction* respringAction = [UIAlertAction actionWithTitle:@"Respring" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
 				[self respring];
 			}];

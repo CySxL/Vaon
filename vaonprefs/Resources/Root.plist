@@ -25,8 +25,6 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
-			<key>footerText</key>
-			<string>More modules to be added in future updates</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -208,7 +206,7 @@
 			<key>label</key>
 			<string>Animation Options</string>
 			<key>footerText</key>
-			<string>Fade in delay is known to have a few issues with the stock switcher</string>
+			<string>Fade In Delay defaults to 0.5 s and can misbehave with the stock switcher.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -220,7 +218,7 @@
 			<key>key</key>
 			<string>enableFlyInOut</string>
 			<key>label</key>
-			<string>Enable fly in/out animations</string>
+			<string>Enable Fly In and Out Animation</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -257,6 +255,8 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Custom Sizing</string>
+			<key>footerText</key>
+			<string>Defaults: height 113, width 400, vertical offset -80, horizontal offset 0.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -408,7 +408,7 @@
 			<key>label</key>
 			<string>Full Width</string>
 			<key>footerText</key>
-			<string>Vaon centred above the stacked cards, as in portrait. Turn the offset on to move it in landscape. Turning it on turns the side module off.</string>
+			<string>Vaon centered above the stacked cards, as in portrait. Turn the offset on to move it in landscape. Turning it on turns the side module off.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -430,7 +430,9 @@
 			<key>id</key>
 			<string>landscapeHOffsetHeader</string>
 			<key>label</key>
-			<string>Horizontal Offset - X (left / right)</string>
+			<string>Horizontal Offset</string>
+			<key>footerText</key>
+			<string>Default 0. Positive moves right.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -456,7 +458,9 @@
 			<key>id</key>
 			<string>landscapeVOffsetHeader</string>
 			<key>label</key>
-			<string>Vertical Offset - Y (up / down)</string>
+			<string>Vertical Offset</string>
+			<key>footerText</key>
+			<string>Default -80. Negative moves up.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -536,7 +540,9 @@
 			<key>id</key>
 			<string>landscapeModuleHOffsetHeader</string>
 			<key>label</key>
-			<string>Module Horizontal Offset - X (left / right)</string>
+			<string>Module Horizontal Offset</string>
+			<key>footerText</key>
+			<string>Default 0. Positive moves right.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -562,7 +568,9 @@
 			<key>id</key>
 			<string>landscapeModuleVOffsetHeader</string>
 			<key>label</key>
-			<string>Module Vertical Offset - Y (up / down)</string>
+			<string>Module Vertical Offset</string>
+			<key>footerText</key>
+			<string>Default -80. Negative moves up.</string>
 		</dict>
 		<dict>
 			<key>cell</key>

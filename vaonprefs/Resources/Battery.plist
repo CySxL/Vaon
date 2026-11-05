@@ -78,7 +78,7 @@
 			<key>key</key>
 			<string>pulsateChargingOutline</string>
 			<key>label</key>
-			<string>Pulsate Outline of Charging Devices</string>
+			<string>Pulsate While Charging</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -102,7 +102,7 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Battery Percentage Text Color Mode</string>
+			<string>Percentage Color Mode</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -193,6 +193,8 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Custom Sizing</string>
+			<key>footerText</key>
+			<string>Defaults: glyph 30, cell 50, font 12, glyph spacing 0, device spacing 30.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -264,7 +266,7 @@
 			<key>key</key>
 			<string>customPercentageFontSizeEnabled</string>
 			<key>label</key>
-			<string>Enable Custom Percentage Font Size</string>
+			<string>Enable Custom Font Size</string>
 		</dict>
 		<dict>
 			<key>gateKey</key>
@@ -294,7 +296,7 @@
 			<key>key</key>
 			<string>paddingBetweenGlyphAndLabelEnabled</string>
 			<key>label</key>
-			<string>Enable padding between glyph and label</string>
+			<string>Enable Custom Glyph Spacing</string>
 		</dict>
 		<dict>
 			<key>gateKey</key>
@@ -324,7 +326,7 @@
 			<key>key</key>
 			<string>horizontalSpacingBetweenDevicesEnabled</string>
 			<key>label</key>
-			<string>Enable Custom Spacing Between Devices</string>
+			<string>Enable Custom Device Spacing</string>
 		</dict>
 		<dict>
 			<key>gateKey</key>
