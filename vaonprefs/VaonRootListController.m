@@ -939,6 +939,7 @@ static NSArray *vaonLandscapeIDs(void) {
 		NSUserDefaults *d = [self store];
 		[d setObject:_pinnedIds forKey:@"pinnedDeviceIdentifiers"];
 		[d synchronize];
+		vaonPostChange();
 	}
 
 	-(void)viewDidLoad {
@@ -1111,6 +1112,7 @@ static NSArray *vaonLandscapeIDs(void) {
 		for(NSString *pid in rawPinned){ if(![removedIds containsObject:pid]) [keptPins addObject:pid]; }
 		[d setObject:keptPins forKey:@"pinnedDeviceIdentifiers"];
 		[d synchronize];
+		vaonPostChange();
 		[self loadModel];
 		[_tableView reloadData];
 	}
@@ -1279,6 +1281,7 @@ static NSArray *vaonLandscapeIDs(void) {
 		}
 		[d setObject:updated forKey:@"knownDevices"];
 		[d synchronize];
+		vaonPostChange();
 		_currentSymbol = sym;
 		[_tableView reloadData];
 	}
