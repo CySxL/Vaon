@@ -234,6 +234,9 @@ static BOOL vaonGateOpen(PSSpecifier *row, id value) {
 	NSArray *_gatedRows;
 }
 
+	-(void)prepareSpecifier:(PSSpecifier *)specifier {
+	}
+
 	//a gated row sits directly under the switch or segment it follows
 	-(NSMutableArray *)gatedSpecifiersFromPlistName:(NSString *)name {
 		NSMutableArray *all = [[self loadSpecifiersFromPlistName:name target:self] mutableCopy];
@@ -241,6 +244,7 @@ static BOOL vaonGateOpen(PSSpecifier *row, id value) {
 		NSMutableArray *shut = [NSMutableArray array];
 		NSMutableDictionary *controls = [NSMutableDictionary dictionary];
 		for(PSSpecifier *s in all){
+			[self prepareSpecifier:s];
 			NSString *key = [s propertyForKey:@"key"];
 			if([key isKindOfClass:[NSString class]]) controls[key] = s;
 			NSString *gate = [s propertyForKey:@"gateKey"];
@@ -269,6 +273,105 @@ static BOOL vaonGateOpen(PSSpecifier *row, id value) {
 				[self removeSpecifier:row animated:YES];
 			}
 		}
+	}
+
+@end
+
+//Alderis stored #RRGGBB at full alpha and #AARRGGBB below it, and the tweak reads both, so the picker keeps that format
+static BOOL vaonParseHex(id value, CGFloat rgba[4]) {
+	if(![value isKindOfClass:[NSString class]]) return NO;
+	NSString *digits = [value hasPrefix:@"#"] ? [value substringFromIndex:1] : value;
+	if(digits.length != 6 && digits.length != 8) return NO;
+	NSScanner *scanner = [NSScanner scannerWithString:digits];
+	unsigned long long v = 0;
+	if(![scanner scanHexLongLong:&v] || !scanner.isAtEnd) return NO;
+	rgba[0] = ((v >> 16) & 0xFF) / 255.0;
+	rgba[1] = ((v >> 8) & 0xFF) / 255.0;
+	rgba[2] = (v & 0xFF) / 255.0;
+	rgba[3] = (digits.length == 8) ? ((v >> 24) & 0xFF) / 255.0 : 1.0;
+	return YES;
+}
+
+static NSString *vaonHexString(const CGFloat rgba[4]) {
+	long c[4];
+	for(int i = 0; i < 4; i++) c[i] = lround(fmin(fmax(rgba[i], 0.0), 1.0) * 255.0);
+	if(c[3] == 255) return [NSString stringWithFormat:@"#%02lx%02lx%02lx", c[0], c[1], c[2]];
+	return [NSString stringWithFormat:@"#%02lx%02lx%02lx%02lx", c[3], c[0], c[1], c[2]];
+}
+
+static UIColor *vaonRowColor(PSSpecifier *row) {
+	CGFloat rgba[4];
+	if(!vaonParseHex([vaonStore() objectForKey:[row propertyForKey:@"colorKey"]], rgba) && !vaonParseHex([row propertyForKey:@"default"], rgba)) return nil;
+	return [UIColor colorWithRed:rgba[0] green:rgba[1] blue:rgba[2] alpha:rgba[3]];
+}
+
+//the row icon, at the size Settings gives its own
+static UIImage *vaonSwatch(UIColor *color) {
+	CGFloat side = 29.0;
+	UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side)];
+	return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+		UIBezierPath *shape = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(0.5, 0.5, side - 1.0, side - 1.0) cornerRadius:side * 0.225];
+		[(color ?: [UIColor clearColor]) setFill];
+		[shape fill];
+		[[UIColor colorWithWhite:0.5 alpha:0.35] setStroke];
+		[shape stroke];
+	}];
+}
+
+@implementation VaonColorListController {
+	PSSpecifier *_picking;
+}
+
+	-(void)prepareSpecifier:(PSSpecifier *)specifier {
+		if([[specifier propertyForKey:@"colorKey"] isKindOfClass:[NSString class]]){
+			[specifier setProperty:vaonSwatch(vaonRowColor(specifier)) forKey:@"iconImage"];
+		}
+	}
+
+	-(PSSpecifier *)colorSpecifierAtIndexPath:(NSIndexPath *)indexPath {
+		PSSpecifier *specifier = [self specifierAtIndexPath:indexPath];
+		return [[specifier propertyForKey:@"colorKey"] isKindOfClass:[NSString class]] ? specifier : nil;
+	}
+
+	-(NSIndexPath *)tableView:(UITableView *)tableView willSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+		if([self colorSpecifierAtIndexPath:indexPath]) return indexPath;
+		if([PSListController instancesRespondToSelector:_cmd]) return [super tableView:tableView willSelectRowAtIndexPath:indexPath];
+		return indexPath;
+	}
+
+	-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+		PSSpecifier *specifier = [self colorSpecifierAtIndexPath:indexPath];
+		if(!specifier){
+			[super tableView:tableView didSelectRowAtIndexPath:indexPath];
+			return;
+		}
+		[tableView deselectRowAtIndexPath:indexPath animated:YES];
+		_picking = specifier;
+		UIColorPickerViewController *picker = [[UIColorPickerViewController alloc] init];
+		picker.title = specifier.name;
+		picker.supportsAlpha = YES;
+		picker.selectedColor = vaonRowColor(specifier) ?: [UIColor whiteColor];
+		picker.delegate = self;
+		[self presentViewController:picker animated:YES completion:nil];
+	}
+
+	-(void)savePickedColor:(UIColor *)color {
+		NSString *key = [_picking propertyForKey:@"colorKey"];
+		if(![key isKindOfClass:[NSString class]] || !color) return;
+		CGFloat rgba[4] = {0, 0, 0, 0};
+		if(![color getRed:&rgba[0] green:&rgba[1] blue:&rgba[2] alpha:&rgba[3]]) return;
+		[vaonStore() setObject:vaonHexString(rgba) forKey:key];
+		[_picking setProperty:vaonSwatch(vaonRowColor(_picking)) forKey:@"iconImage"];
+		[self reloadSpecifier:_picking animated:NO];
+	}
+
+	-(void)colorPickerViewController:(UIColorPickerViewController *)picker didSelectColor:(UIColor *)color continuously:(BOOL)continuously {
+		if(!continuously) [self savePickedColor:color];
+	}
+
+	-(void)colorPickerViewControllerDidFinish:(UIColorPickerViewController *)picker {
+		[self savePickedColor:picker.selectedColor];
+		_picking = nil;
 	}
 
 @end

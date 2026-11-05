@@ -33,24 +33,18 @@
 			</array>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>colorKey</key>
+			<string>customConnectedDeviceColor</string>
+			<key>default</key>
+			<string>#33b5e5</string>
 			<key>gateKey</key>
 			<string>customConnectedDeviceColorMode</string>
 			<key>gateValue</key>
 			<string>custom</string>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customConnectedDeviceColor</string>
-			<key>default</key>
-			<string>#33b5e5</string>
 			<key>label</key>
 			<string>Custom Connected Device Color</string>
-			<key>showAlphaSlider</key>
-			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -81,24 +75,18 @@
 			</array>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>colorKey</key>
+			<string>customDisconnectedDeviceColor</string>
+			<key>default</key>
+			<string>#33b5e5</string>
 			<key>gateKey</key>
 			<string>customDisconnectedDeviceColorMode</string>
 			<key>gateValue</key>
 			<string>custom</string>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customDisconnectedDeviceColor</string>
-			<key>default</key>
-			<string>#33b5e5</string>
 			<key>label</key>
 			<string>Custom Disconnected Device Color</string>
-			<key>showAlphaSlider</key>
-			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -129,24 +117,18 @@
 			</array>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>colorKey</key>
+			<string>customLowPowerColor</string>
+			<key>default</key>
+			<string>#33b5e5</string>
 			<key>gateKey</key>
 			<string>customLowPowerColorMode</string>
 			<key>gateValue</key>
 			<string>custom</string>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customLowPowerColor</string>
-			<key>default</key>
-			<string>#33b5e5</string>
 			<key>label</key>
 			<string>Custom Low Power Mode Color</string>
-			<key>showAlphaSlider</key>
-			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -177,24 +159,18 @@
 			</array>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>colorKey</key>
+			<string>customLowBatteryColor</string>
+			<key>default</key>
+			<string>#33b5e5</string>
 			<key>gateKey</key>
 			<string>customLowBatteryColorMode</string>
 			<key>gateValue</key>
 			<string>custom</string>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customLowBatteryColor</string>
-			<key>default</key>
-			<string>#33b5e5</string>
 			<key>label</key>
 			<string>Custom Low Battery Color</string>
-			<key>showAlphaSlider</key>
-			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -227,24 +203,18 @@
 			</array>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>colorKey</key>
+			<string>customChargingColor</string>
+			<key>default</key>
+			<string>#33b5e5</string>
 			<key>gateKey</key>
 			<string>customChargingColorMode</string>
 			<key>gateValue</key>
 			<string>custom</string>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customChargingColor</string>
-			<key>default</key>
-			<string>#33b5e5</string>
 			<key>label</key>
 			<string>Custom Charging Color</string>
-			<key>showAlphaSlider</key>
-			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -277,24 +247,18 @@
 			</array>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>colorKey</key>
+			<string>customNoBatteryConnectedColor</string>
+			<key>default</key>
+			<string>#8560d6</string>
 			<key>gateKey</key>
 			<string>customNoBatteryConnectedColorMode</string>
 			<key>gateValue</key>
 			<string>custom</string>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customNoBatteryConnectedColor</string>
-			<key>default</key>
-			<string>#8560d6</string>
 			<key>label</key>
 			<string>Custom Connected Color</string>
-			<key>showAlphaSlider</key>
-			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -325,24 +289,18 @@
 			</array>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>colorKey</key>
+			<string>customNoBatteryDisconnectedColor</string>
+			<key>default</key>
+			<string>#8560d6</string>
 			<key>gateKey</key>
 			<string>customNoBatteryDisconnectedColorMode</string>
 			<key>gateValue</key>
 			<string>custom</string>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customNoBatteryDisconnectedColor</string>
-			<key>default</key>
-			<string>#8560d6</string>
 			<key>label</key>
 			<string>Custom Disconnected Color</string>
-			<key>showAlphaSlider</key>
-			<true/>
 		</dict>
 	</array>
 	<key>title</key>

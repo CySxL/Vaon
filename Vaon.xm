@@ -197,7 +197,7 @@ UIColor* colorFromHexString(NSString *hexString) {
     NSString *digits = [hexString hasPrefix:@"#"] ? [hexString substringFromIndex:1] : hexString;
     unsigned long long value = 0;
     if(![[NSScanner scannerWithString:digits] scanHexLongLong:&value]) return [UIColor clearColor];
-    //the pickers offer an alpha slider, and Alderis writes AARRGGBB once alpha leaves full. the
+    //the pickers offer an alpha slider and store AARRGGBB once alpha leaves full, as Alderis did. the
     //low 24 bits are RRGGBB either way, so the shifts below are the same for 6 and 8 digits
     CGFloat alpha = 1.0;
     if(digits.length >= 8) alpha = ((value >> 24) & 0xFF)/255.0;

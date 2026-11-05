@@ -129,24 +129,18 @@
 			</array>
 		</dict>
 		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>colorKey</key>
+			<string>customBatteryTextColor</string>
+			<key>default</key>
+			<string>#ffffff</string>
 			<key>gateKey</key>
 			<string>batteryTextColor</string>
 			<key>gateValue</key>
 			<string>custom</string>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
-			<key>defaults</key>
-			<string>com.atar13.vaonprefs</string>
-			<key>key</key>
-			<string>customBatteryTextColor</string>
-			<key>default</key>
-			<string>#ffffff</string>
 			<key>label</key>
 			<string>Custom Percentage Text Color</string>
-			<key>showAlphaSlider</key>
-			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>
