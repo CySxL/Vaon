@@ -4,7 +4,12 @@
 #import <Preferences/PSSpecifier.h>
 #import <spawn.h>
 
-@interface VaonRootListController : PSListController
+//rows carrying gateKey leave the page while the switch or mode of that key is off
+@interface VaonGatedListController : PSListController
+-(NSMutableArray *)gatedSpecifiersFromPlistName:(NSString *)name;
+@end
+
+@interface VaonRootListController : VaonGatedListController
 @end
 
 @interface VaonPinnedDevicesController : PSViewController <UITableViewDataSource, UITableViewDelegate>
@@ -15,10 +20,10 @@
 @property (nonatomic, copy) NSString *targetDeviceIdentifier;
 @end
 
-@interface BatteryPreferenceController : PSListController
+@interface BatteryPreferenceController : VaonGatedListController
 @end
 
-@interface BatteryColorPreferenceController : PSListController
+@interface BatteryColorPreferenceController : VaonGatedListController
 @end
 
 @interface VaonStepperCell : PSTableCell {

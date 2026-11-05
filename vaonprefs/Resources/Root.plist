@@ -235,6 +235,8 @@
 			<string>Enable Fade In Delay</string>
 		</dict>
 		<dict>
+			<key>gateKey</key>
+			<string>enableDelay</string>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
@@ -269,6 +271,8 @@
 			<string>Enable Custom Height Size</string>
 		</dict>
 		<dict>
+			<key>gateKey</key>
+			<string>customHeightEnabled</string>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
@@ -297,6 +301,8 @@
 			<string>Enable Custom Width Size</string>
 		</dict>
 		<dict>
+			<key>gateKey</key>
+			<string>customWidthEnabled</string>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
@@ -325,6 +331,8 @@
 			<string>Enable Custom Vertical Offset</string>
 		</dict>
 		<dict>
+			<key>gateKey</key>
+			<string>customVerticalOffsetEnabled</string>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>
@@ -353,6 +361,8 @@
 			<string>Enable Custom Horizontal Offset</string>
 		</dict>
 		<dict>
+			<key>gateKey</key>
+			<string>customHorizontalOffsetEnabled</string>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>default</key>

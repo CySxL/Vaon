@@ -210,11 +210,74 @@ static CGFloat vaonNameBaselineOffset(CGFloat scale) {
 
 @end
 
+static NSUserDefaults *vaonStore(void) {
+	static NSUserDefaults *store;
+	if(!store) store = [[NSUserDefaults alloc] initWithSuiteName:@"com.atar13.vaonprefs"];
+	return store;
+}
+
+//a switch or mode as stored, or its plist default when it has never been set
+static id vaonControlValue(PSSpecifier *control) {
+	id value = [vaonStore() objectForKey:[control propertyForKey:@"key"]];
+	return value ?: [control propertyForKey:@"default"];
+}
+
+//gateValue names the mode that shows the row; without one the row follows a switch
+static BOOL vaonGateOpen(PSSpecifier *row, id value) {
+	id want = [row propertyForKey:@"gateValue"];
+	if([want isKindOfClass:[NSString class]]) return [value isKindOfClass:[NSString class]] && [value isEqualToString:want];
+	return [value isKindOfClass:[NSNumber class]] && [value boolValue];
+}
+
+@implementation VaonGatedListController {
+	//every gated row in plist order, on the page or not
+	NSArray *_gatedRows;
+}
+
+	//a gated row sits directly under the switch or segment it follows
+	-(NSMutableArray *)gatedSpecifiersFromPlistName:(NSString *)name {
+		NSMutableArray *all = [[self loadSpecifiersFromPlistName:name target:self] mutableCopy];
+		NSMutableArray *gated = [NSMutableArray array];
+		NSMutableArray *shut = [NSMutableArray array];
+		NSMutableDictionary *controls = [NSMutableDictionary dictionary];
+		for(PSSpecifier *s in all){
+			NSString *key = [s propertyForKey:@"key"];
+			if([key isKindOfClass:[NSString class]]) controls[key] = s;
+			NSString *gate = [s propertyForKey:@"gateKey"];
+			if(![gate isKindOfClass:[NSString class]]) continue;
+			[gated addObject:s];
+			PSSpecifier *control = controls[gate];
+			if(!control || !vaonGateOpen(s, vaonControlValue(control))) [shut addObject:s];
+		}
+		[all removeObjectsInArray:shut];
+		_gatedRows = gated;
+		return all;
+	}
+
+	-(void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
+		[super setPreferenceValue:value specifier:specifier];
+		NSString *key = [specifier propertyForKey:@"key"];
+		if(![key isKindOfClass:[NSString class]]) return;
+		PSSpecifier *previous = specifier;
+		for(PSSpecifier *row in _gatedRows){
+			if(![[row propertyForKey:@"gateKey"] isEqual:key]) continue;
+			BOOL shown = ([self indexOfSpecifier:row] != NSNotFound);
+			if(vaonGateOpen(row, value)){
+				if(!shown) [self insertSpecifier:row afterSpecifier:previous animated:YES];
+				previous = row;
+			} else if(shown){
+				[self removeSpecifier:row animated:YES];
+			}
+		}
+	}
+
+@end
+
 @implementation BatteryColorPreferenceController
 
 	-(NSArray *)specifiers {
 		if (!_specifiers) {
-			_specifiers = [self loadSpecifiersFromPlistName:@"BatteryColor" target:self];
+			_specifiers = [self gatedSpecifiersFromPlistName:@"BatteryColor"];
 		}
 
 		return _specifiers;
@@ -250,7 +313,7 @@ static CGFloat vaonNameBaselineOffset(CGFloat scale) {
 
 	-(NSArray *)specifiers {
 		if (!_specifiers) {
-			_specifiers = [self loadSpecifiersFromPlistName:@"Battery" target:self];
+			_specifiers = [self gatedSpecifiersFromPlistName:@"Battery"];
 		}
 
 		return _specifiers;
@@ -321,7 +384,7 @@ static NSArray *vaonLandscapeIDs(void) {
 
 	-(NSArray *)specifiers {
 		if (!_specifiers) {
-			NSMutableArray *all = [[self loadSpecifiersFromPlistName:@"Root" target:self] mutableCopy];
+			NSMutableArray *all = [self gatedSpecifiersFromPlistName:@"Root"];
 			//collect the dots-dependent options in plist order, then drop them if page dots are off
 			NSMutableArray *deps = [NSMutableArray array];
 			NSMutableArray *landDeps = [NSMutableArray array];
