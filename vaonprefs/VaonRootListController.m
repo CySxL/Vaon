@@ -161,7 +161,9 @@ static UIImage *vaonSymbol(NSString *name, CGFloat side) {
 			UIGraphicsEndImageContext();
 			UIImageSymbolConfiguration *small = [UIImageSymbolConfiguration configurationWithPointSize:11.0 weight:UIImageSymbolWeightSemibold];
 			NSTextAttachment *code = [[NSTextAttachment alloc] init];
-			code.image = [[UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right" withConfiguration:small] imageWithTintColor:[UIColor linkColor] renderingMode:UIImageRenderingModeAlwaysOriginal];
+			NSString *symbol = [specifier propertyForKey:@"vaonBranchSymbol"];
+			if(![symbol isKindOfClass:[NSString class]]) symbol = @"chevron.left.forwardslash.chevron.right";
+			code.image = [[UIImage systemImageNamed:symbol withConfiguration:small] imageWithTintColor:[UIColor linkColor] renderingMode:UIImageRenderingModeAlwaysOriginal];
 			NSMutableAttributedString *title = [[NSMutableAttributedString alloc] init];
 			if(code.image) [title appendAttributedString:[NSAttributedString attributedStringWithAttachment:code]];
 			[title appendAttributedString:[[NSAttributedString alloc] initWithString:[@"  " stringByAppendingString:specifier.name ?: @""]
@@ -735,12 +737,13 @@ static NSArray *vaonLandscapeIDs(void) {
 		PSSpecifier *credits = [PSSpecifier preferenceSpecifierNamed:@"Credits" target:self set:NULL get:NULL detail:nil cell:PSGroupCell edit:nil];
 		[credits setProperty:@"© CySxL 2026" forKey:@"footerText"];
 		[specifiers addObject:credits];
-		//name, subtitle, action, picture; a row with no picture is a branch of the row above it
+		//name, subtitle, action, picture, then an optional symbol; a row with no picture is a branch of the row above it
 		NSArray *rows = @[
 			@[@"Anthony Tarbinian", @"Original Developer", NSStringFromSelector(@selector(twitter)), @"images/twitter/twitterIcon"],
 			@[@"Source Code", @"", NSStringFromSelector(@selector(github)), @""],
 			@[@"SingleKeycap", @"@singlekeycap", NSStringFromSelector(@selector(twitterKeycap)), @"images/twitter/twitterIconKeycap"],
-			@[@"CySxL", @"Maintainer · iOS 16 Port", NSStringFromSelector(@selector(githubCySxL)), @"avatar"]
+			@[@"CySxL", @"Maintainer · iOS 16 Port", NSStringFromSelector(@selector(githubCySxL)), @"avatar"],
+			@[@"Tip on Ko-fi", @"", NSStringFromSelector(@selector(kofi)), @"", @"cup.and.saucer"]
 		];
 		PSSpecifier *previous = nil;
 		for(NSArray *row in rows){
@@ -749,6 +752,7 @@ static NSArray *vaonLandscapeIDs(void) {
 			[credit setProperty:row[1] forKey:@"subtitle"];
 			if([row[3] length] == 0){
 				[credit setProperty:@YES forKey:@"vaonBranch"];
+				if(row.count > 4) [credit setProperty:row[4] forKey:@"vaonBranchSymbol"];
 				[credit setProperty:@34 forKey:@"height"];
 				[previous setProperty:@YES forKey:@"vaonBranchBelow"];
 			} else {
@@ -843,6 +847,13 @@ static NSArray *vaonLandscapeIDs(void) {
 		completionHandler:nil];
 	}
 
+
+	-(void)kofi{
+		[[UIApplication sharedApplication]
+			openURL:[NSURL URLWithString:@"https://ko-fi.com/cysxl"]
+			options:@{}
+		completionHandler:nil];
+	}
 
 	-(void)githubCySxL{
 		[[UIApplication sharedApplication]
