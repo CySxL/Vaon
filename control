@@ -1,8 +1,11 @@
-Package: com.atar13.vaon
+Package: com.cysxl.vaon
 Name: Vaon
 Version: 2.1.5
 Architecture: iphoneos-arm
 Depends: mobilesubstrate (>= 0.9.5000), preferenceloader
+Conflicts: com.atar13.vaon
+Replaces: com.atar13.vaon
+Provides: com.atar13.vaon
 Description: A fork of atar13's Vaon.
  Shows the battery of Bluetooth accessories in the app switcher.
  * keep disconnected & pinned devices on show.
