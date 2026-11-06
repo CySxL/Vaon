@@ -1,6 +1,6 @@
 Package: com.cysxl.vaon
 Name: Vaon
-Version: 2.1.8
+Version: 2.1.9
 Architecture: iphoneos-arm
 Depends: mobilesubstrate (>= 0.9.5000), preferenceloader
 Conflicts: com.atar13.vaon
