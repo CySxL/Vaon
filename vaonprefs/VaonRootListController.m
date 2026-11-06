@@ -197,7 +197,8 @@ static UIImage *vaonSymbol(NSString *name, CGFloat side) {
 		[super layoutSubviews];
 		if(!_branch) return;
 		BOOL branch = [[self.specifier propertyForKey:@"vaonBranch"] isEqual:@YES];
-		if(!branch){
+		BOOL below = [[self.specifier propertyForKey:@"vaonBranchBelow"] isEqual:@YES];
+		if(below){
 			for(UIView *view in self.subviews){
 				if([NSStringFromClass([view class]) hasSuffix:@"SeparatorView"]) view.hidden = YES;
 			}
@@ -212,6 +213,11 @@ static UIImage *vaonSymbol(NSString *name, CGFloat side) {
 			[path addLineToPoint:CGPointMake(x, y - r)];
 			[path addQuadCurveToPoint:CGPointMake(x + r, y) controlPoint:CGPointMake(x, y)];
 			[path addLineToPoint:CGPointMake(CGRectGetMaxX(slot), y)];
+			//a branch with another below it carries the line on to the next one
+			if(below){
+				[path moveToPoint:CGPointMake(x, y - r)];
+				[path addLineToPoint:CGPointMake(x, CGRectGetMaxY(self.contentView.bounds))];
+			}
 		} else {
 			[path moveToPoint:CGPointMake(x, CGRectGetMaxY(slot) + 3.0)];
 			[path addLineToPoint:CGPointMake(x, CGRectGetMaxY(self.contentView.bounds))];
@@ -743,6 +749,7 @@ static NSArray *vaonLandscapeIDs(void) {
 			@[@"Source Code", @"", NSStringFromSelector(@selector(github)), @""],
 			@[@"SingleKeycap", @"@singlekeycap", NSStringFromSelector(@selector(twitterKeycap)), @"images/twitter/twitterIconKeycap"],
 			@[@"CySxL", @"Maintainer · iOS 16 Port", NSStringFromSelector(@selector(githubCySxL)), @"avatar"],
+			@[@"Source Code", @"", NSStringFromSelector(@selector(githubFork)), @""],
 			@[@"Tip on Ko-fi", @"", NSStringFromSelector(@selector(kofi)), @"", @"cup.and.saucer"]
 		];
 		PSSpecifier *previous = nil;
@@ -847,6 +854,13 @@ static NSArray *vaonLandscapeIDs(void) {
 		completionHandler:nil];
 	}
 
+
+	-(void)githubFork{
+		[[UIApplication sharedApplication]
+			openURL:[NSURL URLWithString:@"https://github.com/CySxL/Vaon"]
+			options:@{}
+		completionHandler:nil];
+	}
 
 	-(void)kofi{
 		[[UIApplication sharedApplication]
