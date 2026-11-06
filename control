@@ -2,16 +2,16 @@ Package: com.atar13.vaon
 Name: Vaon
 Version: 2.1.5
 Architecture: iphoneos-arm
-Description: Shows the battery of Bluetooth accessories in the app switcher.
+Depends: mobilesubstrate (>= 0.9.5000), preferenceloader
+Description: A fork of atar13's Vaon.
+ Shows the battery of Bluetooth accessories in the app switcher.
  * keep disconnected & pinned devices on show.
  * show speakers & soundbars that report no battery level.
  * pick a custom glyph per device.
  * page through devices with page dots.
  * park a side module beside a floating dock in landscape.
  * apply settings without a respring.
-Maintainer: atar13 <atar13dev@gmail.com>
-Depends: mobilesubstrate (>= 0.9.5000), preferenceloader
 Author: atar13, SingleKeycap, CySxL
-Depiction: https://atar13.github.io/repo/com.atar13.vaon
+Maintainer: CySxL
 Icon: https://atar13.github.io/assets/package_icons/vaonIcon.png
 Section: Tweaks
